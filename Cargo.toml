@@ -1,0 +1,40 @@
+[workspace]
+resolver = "2"
+members = ["backend"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+axum = "0.8.9"
+tokio = { version = "1.53", features = ["full"] }
+tokio-util = "0.7"
+# default-tls (rustls) without system-proxy: proxies are intentionally disabled
+# so environment proxies can never bypass the SSRF destination checks.
+reqwest = { version = "0.13.5", default-features = false, features = ["default-tls", "charset", "http2"] }
+sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "migrate", "chrono", "uuid"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tower-http = { version = "0.7", features = ["cors", "trace"] }
+utoipa = { version = "6", features = ["chrono", "uuid"] }
+# Swagger UI assets exposed as axum routes. (utoipa-swagger-ui is currently
+# unresolvable: every `zip` crate version it needs is yanked upstream.)
+swagger-ui-dist = "5.33.3"
+dotenvy = "0.15"
+rand = "0.9"
+url = "2"
+
+# Dev
+wiremock = "0.6"
+tempfile = "3"
+
+[profile.dev]
+# Keep dev builds lighter on disk (line tables only); full debuginfo available via `cargo build --profile dev-full`.
+debug = "line-tables-only"

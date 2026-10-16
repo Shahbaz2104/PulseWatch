@@ -1,0 +1,17 @@
+{
+  "name": "pulsewatch",
+  "private": true,
+  "version": "0.1.0",
+  "description": "PulseWatch - website uptime monitoring platform (dev workflow scripts)",
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cargo run --manifest-path backend/Cargo.toml",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "cargo build --workspace && npm --prefix frontend run build",
+    "test": "cargo test --workspace && npm --prefix frontend run test",
+    "lint": "cargo fmt --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && npm --prefix frontend run lint"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.2"
+  }
+}

@@ -1,0 +1,21 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Node
+node_modules/
+frontend/dist/
+.vite/
+
+# Environment & data
+.env
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Editor / OS
+.idea/
+.vscode/
+.DS_Store
+*.swp
