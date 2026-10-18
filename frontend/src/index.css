@@ -1,0 +1,210 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * PulseWatch design tokens.
+ *
+ * Dark (default): deep navy surface ladder — background → card → elevated —
+ * separated by hairline cool borders. Emerald is the only accent and is
+ * reserved for primary actions, healthy state, and selection. Light theme
+ * remaps the same roles on a cool paper ground.
+ */
+:root {
+  --background: #f5f7fb;
+  --foreground: #0d1526;
+  --card: #ffffff;
+  --card-foreground: #0d1526;
+  --popover: #ffffff;
+  --popover-foreground: #0d1526;
+  --primary: #059669;
+  --primary-foreground: #ffffff;
+  --secondary: #e8edf5;
+  --secondary-foreground: #1b2740;
+  --muted: #eef2f8;
+  --muted-foreground: #5b6b85;
+  --accent: #e6f7f0;
+  --accent-foreground: #065f46;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --border: #dce3ee;
+  --input: #dce3ee;
+  --ring: #059669;
+  --chart-1: #059669;
+  --chart-2: #0ea5e9;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #ef4444;
+  --success: #059669;
+  --warning: #d97706;
+  --danger: #dc2626;
+  --unknown: #64748b;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1b2740;
+  --sidebar-border: #e4e9f2;
+  --sidebar-accent: #eef2f8;
+  --sidebar-accent-foreground: #0d1526;
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: #0a1020;
+  --foreground: #e7edf7;
+  --card: #101a2e;
+  --card-foreground: #e7edf7;
+  --popover: #14203a;
+  --popover-foreground: #e7edf7;
+  --primary: #10b981;
+  --primary-foreground: #042f1e;
+  --secondary: #182542;
+  --secondary-foreground: #c7d2e5;
+  --muted: #152036;
+  --muted-foreground: #8b9bb8;
+  --accent: #0f2a33;
+  --accent-foreground: #6ee7b7;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --border: #1f2d4a;
+  --input: #1f2d4a;
+  --ring: #10b981;
+  --chart-1: #10b981;
+  --chart-2: #38bdf8;
+  --chart-3: #fbbf24;
+  --chart-4: #a78bfa;
+  --chart-5: #f87171;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --unknown: #94a3b8;
+  --sidebar: #0d1526;
+  --sidebar-foreground: #c7d2e5;
+  --sidebar-border: #1c2942;
+  --sidebar-accent: #152036;
+  --sidebar-accent-foreground: #e7edf7;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-unknown: var(--unknown);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono Variable", ui-monospace, "SF Mono", monospace;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+  /* Data-dense surfaces: numbers never jitter as they update. */
+  .tabular,
+  table td,
+  table th {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  /* Status colors share one vocabulary across pills, dots, and charts. */
+  .text-status-up {
+    color: var(--success);
+  }
+  .text-status-down {
+    color: var(--danger);
+  }
+  .text-status-degraded {
+    color: var(--warning);
+  }
+  .text-status-unknown {
+    color: var(--unknown);
+  }
+  .text-status-paused {
+    color: var(--muted-foreground);
+  }
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+/* Live status dot: soft expanding ring, emerald/red, no neon glow. */
+@keyframes ring-pulse {
+  0% {
+    box-shadow: 0 0 0 0 currentColor;
+    opacity: 0.45;
+  }
+  70% {
+    box-shadow: 0 0 0 5px transparent;
+    opacity: 0;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+    opacity: 0;
+  }
+}
+.animate-ring-pulse {
+  animation: ring-pulse 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite;
+}
+
+/* Card hover: hairline brightens toward the accent — no lift/shadow gimmicks. */
+.card-hover {
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+.card-hover:hover {
+  border-color: color-mix(in oklab, var(--primary) 32%, var(--border));
+}
+
+/* Focus ring that matches the accent without browser default blue. */
+:where(a, button, [role="button"], input, select, textarea):focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
