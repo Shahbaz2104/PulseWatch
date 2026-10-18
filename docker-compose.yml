@@ -1,0 +1,21 @@
+name: pulsewatch
+services:
+  api:
+    build:
+      context: .
+      dockerfile: backend.Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DATABASE_URL: sqlite:////data/pulsewatch.db
+      RUST_LOG: info,pulsewatch_backend=info
+      # CORS for a locally served frontend; tighten for production.
+      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    volumes:
+      - pulsewatch-data:/data
+    restart: unless-stopped
+
+volumes:
+  pulsewatch-data:
