@@ -1,6 +1,6 @@
 //! Health endpoints.
 
-use axum::{Json, extract::State, http::StatusCode};
+use axum::{extract::State, http::StatusCode, Json};
 use serde::Serialize;
 use utoipa::ToSchema;
 
@@ -27,7 +27,10 @@ pub struct HealthResponse {
     )
 )]
 pub async fn health(State(state): State<AppState>) -> (StatusCode, Json<HealthResponse>) {
-    let database = match sqlx::query_scalar::<_, i64>("SELECT 1").fetch_one(&state.pool).await {
+    let database = match sqlx::query_scalar::<_, i64>("SELECT 1")
+        .fetch_one(&state.pool)
+        .await
+    {
         Ok(_) => "ok",
         Err(err) => {
             tracing::error!(error = %err, "health check: database unavailable");

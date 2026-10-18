@@ -9,7 +9,9 @@ use uuid::Uuid;
 ///
 /// `Paused` monitors never run checks and must never be reported as
 /// operational regardless of their last check outcome.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema,
+)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(rename_all = "lowercase")]
 pub enum MonitorStatus {
@@ -132,7 +134,7 @@ impl From<Monitor> for MonitorSummary {
 }
 
 /// Query parameters accepted by monitor list endpoints.
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct ListMonitorsQuery {
     /// Free-text match against name or URL.
     pub search: Option<String>,

@@ -1,9 +1,9 @@
 //! Typed application errors mapped to a consistent JSON response envelope.
 
 use axum::{
-    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
+    Json,
 };
 use serde::Serialize;
 use utoipa::ToSchema;

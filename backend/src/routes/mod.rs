@@ -1,18 +1,23 @@
 //! HTTP routing: API routes, the OpenAPI UI, CORS and tracing layers.
 
 use axum::{
-    Router,
     http::{HeaderValue, Method},
     routing::get,
+    Router,
 };
+use swagger_ui_dist::{generate_routes, ApiDefinition, OpenApiSource};
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
-use swagger_ui_dist::{ApiDefinition, OpenApiSource, generate_routes};
 
 use crate::openapi::openapi_json;
 use crate::state::AppState;
 
+pub mod checks;
 pub mod health;
+pub mod incidents;
+pub mod monitors;
+pub mod reports;
+pub mod settings;
 
 pub fn router(state: AppState) -> Router {
     let cors = build_cors(&state.config.allowed_origins);
@@ -29,6 +34,32 @@ pub fn router(state: AppState) -> Router {
     let api = Router::new()
         .route("/health", get(health::health))
         .route("/openapi.json", get(openapi_json_route))
+        .route("/monitors", get(monitors::list).post(monitors::create))
+        .route(
+            "/monitors/{id}",
+            get(monitors::get)
+                .put(monitors::update)
+                .delete(monitors::delete),
+        )
+        .route(
+            "/monitors/{id}/check",
+            axum::routing::post(monitors::check_now),
+        )
+        .route("/monitors/{id}/pause", axum::routing::post(monitors::pause))
+        .route(
+            "/monitors/{id}/resume",
+            axum::routing::post(monitors::resume),
+        )
+        .route("/monitors/{id}/checks", get(checks::list))
+        .route("/monitors/{id}/checks/latest", get(checks::latest))
+        .route("/monitors/{id}/checks/summary", get(checks::summary))
+        .route("/reports/overview", get(reports::overview))
+        .route("/reports/uptime", get(reports::uptime))
+        .route("/reports/response-times", get(reports::response_times))
+        .route("/reports/incidents", get(reports::incidents))
+        .route("/incidents", get(incidents::list))
+        .route("/incidents/{id}", get(incidents::get))
+        .route("/settings", get(settings::get).put(settings::update))
         .merge(
             generate_routes(ApiDefinition {
                 uri_prefix: "/api/v1/docs",
@@ -74,7 +105,9 @@ fn build_cors(origins: &[String]) -> CorsLayer {
         .collect();
 
     if parsed.is_empty() {
-        tracing::warn!("no valid ALLOWED_ORIGINS configured; cross-origin requests will be blocked");
+        tracing::warn!(
+            "no valid ALLOWED_ORIGINS configured; cross-origin requests will be blocked"
+        );
     } else {
         layer = layer.allow_origin(parsed);
     }

@@ -1,21 +1,11 @@
 //! PulseWatch backend entrypoint: configuration, database, HTTP server and
 //! graceful shutdown.
 
-mod config;
-mod db;
-mod error;
-mod models;
-mod openapi;
-mod routes;
-mod state;
-
 use std::sync::Arc;
 
+use pulsewatch_backend::{config::Config, db, routes, state, validation};
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
-
-use crate::config::Config;
-use crate::state::AppState;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -35,11 +25,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let pool = db::connect(&config.database_url).await?;
     tracing::info!("database ready (migrations applied)");
 
-    let http_client = reqwest::Client::builder()
-        .user_agent(concat!("PulseWatch/", env!("CARGO_PKG_VERSION")))
-        .build()?;
+    let http_client = validation::build_safe_http_client(&config).map_err(|err| {
+        tracing::error!(error = %err, "failed to build HTTP client");
+        err
+    })?;
+    tracing::info!("outbound HTTP client ready (SSRF-filtered DNS, bounded redirects)");
 
-    let state = AppState {
+    let state = state::AppState {
         pool,
         config: config.clone(),
         http_client: Arc::new(http_client),
@@ -49,6 +41,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let app = routes::router(state.clone());
+    let _scheduler = pulsewatch_backend::services::scheduler::spawn(state.clone());
     let listener = tokio::net::TcpListener::bind(config.bind_addr()).await?;
     tracing::info!(addr = %listener.local_addr()?, "HTTP server listening");
 

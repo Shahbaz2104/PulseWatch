@@ -47,10 +47,9 @@ where
     T::Err: std::fmt::Display,
 {
     match std::env::var(key) {
-        Ok(v) if !v.trim().is_empty() => v
-            .trim()
-            .parse::<T>()
-            .map_err(|_| ConfigError::Invalid(key)),
+        Ok(v) if !v.trim().is_empty() => {
+            v.trim().parse::<T>().map_err(|_| ConfigError::Invalid(key))
+        }
         _ => Ok(default),
     }
 }
@@ -67,10 +66,7 @@ impl Config {
         let config = Self {
             host: parse_or("HOST", "127.0.0.1".parse().unwrap())?,
             port: parse_or("PORT", 3000)?,
-            database_url: parse_or(
-                "DATABASE_URL",
-                "sqlite://./data/pulsewatch.db".to_string(),
-            )?,
+            database_url: parse_or("DATABASE_URL", "sqlite://./data/pulsewatch.db".to_string())?,
             default_check_interval_seconds: in_range(
                 "DEFAULT_CHECK_INTERVAL_SECONDS",
                 parse_or("DEFAULT_CHECK_INTERVAL_SECONDS", 60)?,
@@ -91,14 +87,11 @@ impl Config {
             )?,
             default_retry_backoff_ms: parse_or("DEFAULT_RETRY_BACKOFF_MS", 500)?,
             default_retry_backoff_max_ms: parse_or("DEFAULT_RETRY_BACKOFF_MAX_MS", 10_000)?,
-            max_concurrent_checks: parse_or("MAX_CONCURRENT_CHECKS", 16_usize).map_err(|_| {
-                ConfigError::Invalid("MAX_CONCURRENT_CHECKS")
-            })?,
+            max_concurrent_checks: parse_or("MAX_CONCURRENT_CHECKS", 16_usize)
+                .map_err(|_| ConfigError::Invalid("MAX_CONCURRENT_CHECKS"))?,
             allow_private_targets: parse_or("PULSEWATCH_ALLOW_PRIVATE_TARGETS", false)?,
             allowed_origins: std::env::var("ALLOWED_ORIGINS")
-                .unwrap_or_else(|_| {
-                    "http://localhost:5173,http://127.0.0.1:5173".to_string()
-                })
+                .unwrap_or_else(|_| "http://localhost:5173,http://127.0.0.1:5173".to_string())
                 .split(',')
                 .map(str::trim)
                 .filter(|value| !value.is_empty())
@@ -130,17 +123,16 @@ impl Config {
 mod tests {
     use super::*;
 
+    // Env-mutating assertions live in one test so parallel test threads never
+    // observe each other's temporary `DATABASE_URL` changes.
     #[test]
-    fn default_env_config_is_valid() {
+    fn env_config_validation() {
         // Ensure no leftover env from other tests influences this one.
         let config = Config::from_env().expect("environment defaults must validate");
         assert!(config.max_concurrent_checks >= 1);
         assert!(config.default_retry_max_attempts >= 1);
         assert!(config.database_url.starts_with("sqlite"));
-    }
 
-    #[test]
-    fn rejects_non_sqlite_database_url() {
         std::env::set_var("DATABASE_URL", "postgres://localhost/pulsewatch");
         let err = Config::from_env().unwrap_err();
         std::env::remove_var("DATABASE_URL");

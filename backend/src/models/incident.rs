@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema,
+)]
 #[serde(rename_all = "lowercase")]
 #[sqlx(rename_all = "lowercase")]
 pub enum IncidentStatus {
@@ -57,7 +59,7 @@ pub struct IncidentWithMonitor {
 }
 
 /// Query parameters for incident listing.
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct ListIncidentsQuery {
     /// Filter by incident state: `open` or `resolved`.
     pub status: Option<String>,
@@ -83,6 +85,9 @@ mod tests {
             Some(IncidentStatus::Resolved)
         );
         assert_eq!(IncidentStatus::parse("closed"), None);
-        assert_eq!(serde_json::to_string(&IncidentStatus::Open).unwrap(), "\"open\"");
+        assert_eq!(
+            serde_json::to_string(&IncidentStatus::Open).unwrap(),
+            "\"open\""
+        );
     }
 }

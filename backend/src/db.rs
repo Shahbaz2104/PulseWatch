@@ -57,19 +57,21 @@ mod tests {
         let url = format!("sqlite://{}/test.db", dir.path().display());
         let pool = connect(&url).await.expect("migrations must apply");
 
-        let tables: Vec<String> = sqlx::query_scalar(
-            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name",
-        )
-        .fetch_all(&pool)
-        .await
-        .unwrap();
+        let tables: Vec<String> =
+            sqlx::query_scalar("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+                .fetch_all(&pool)
+                .await
+                .unwrap();
         assert!(tables.contains(&"monitors".to_string()));
         assert!(tables.contains(&"check_results".to_string()));
         assert!(tables.contains(&"incidents".to_string()));
         assert!(tables.contains(&"settings".to_string()));
 
         // Foreign key enforcement must be on for the pooled connection.
-        let fk: i64 = sqlx::query_scalar("PRAGMA foreign_keys").fetch_one(&pool).await.unwrap();
+        let fk: i64 = sqlx::query_scalar("PRAGMA foreign_keys")
+            .fetch_one(&pool)
+            .await
+            .unwrap();
         assert_eq!(fk, 1);
 
         pool.close().await;

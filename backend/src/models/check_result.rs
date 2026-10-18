@@ -9,7 +9,9 @@ use uuid::Uuid;
 ///
 /// HTTP responses that do not match the expected status range are *not*
 /// transport failures — they are received responses that failed the policy.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, sqlx::Type, utoipa::ToSchema,
+)]
 #[serde(rename_all = "snake_case")]
 #[sqlx(rename_all = "snake_case")]
 pub enum CheckErrorType {
@@ -106,7 +108,7 @@ pub struct CheckResultDto {
 }
 
 /// Query parameters for check history.
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema, utoipa::IntoParams)]
 pub struct ListChecksQuery {
     /// RFC3339 window start.
     pub from: Option<String>,

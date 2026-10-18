@@ -3,6 +3,7 @@
 pub mod check_result;
 pub mod incident;
 pub mod monitor;
+pub mod reports;
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -44,9 +45,12 @@ impl ReportWindow {
         }
         match window {
             "custom" => {
-                let start = parse_rfc3339("from", from.ok_or_else(|| {
-                    AppError::validation("from", "required when window=custom")
-                })?)?;
+                let start = parse_rfc3339(
+                    "from",
+                    from.ok_or_else(|| {
+                        AppError::validation("from", "required when window=custom")
+                    })?,
+                )?;
                 let end = match to {
                     Some(value) => parse_rfc3339("to", value)?,
                     None => Utc::now(),
