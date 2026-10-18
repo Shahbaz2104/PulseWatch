@@ -9,10 +9,16 @@
 
 **Stage 0 — Bootstrap: DONE**
 **Stage 2 — Backend foundation: DONE** (compiles, 19 unit tests passing)
-**Stage 3 — Monitoring engine: NEXT UP** (not started)
-**Stages 4–8: pending**
+**Stage 3 — Monitoring engine: DONE** (51 tests passing: 39 unit + 12 integration; fmt + clippy `-D warnings` clean)
+**Stage 4 — Scheduler + incidents: DONE** (55 tests passing: 39 unit + 16 integration; scheduler loop wired into `main.rs`)
+**Stage 5 — Reports API: DONE** (72 tests passing: 45 unit + 27 integration; fmt + clippy `-D warnings` clean)
+**Stage 6 — Settings API (M0a): DONE** (78 backend tests: 47 unit + 31 integration)
+**Stage 6 — Frontend (M0b–M5): DONE** (build green, oxlint clean, 36 Vitest tests; live browser E2E + screenshots dark/light)
+**Stage 7 — Verification: DONE** (backend 78 + fmt/clippy clean; frontend lint/tests/build clean)
+**Stage 8 — README + delivery: DONE**
+**Status: DELIVERY COMPLETE**
 
-Last verified command run: `cargo test` in `backend/` → `19 passed; 0 failed`.
+Last verified: backend `cargo test` → **78 passed**; frontend `npm test` → **36 passed**; `npm run build` green. E2E screenshots in `/tmp/opencode/pulsewatch-shots/`.
 
 ---
 
@@ -82,12 +88,12 @@ any ──pause─────────────────────�
 - Thresholds default to 1 → transition on first confirmed result.
 - UI derives amber "degraded" = `up` with `consecutive_failures > 0` (field `degraded` already on `MonitorSummary`).
 
-### Metrics (Stage 5 design)
-- Uptime = successful / eligible checks × 100 in window; **null (not 100%) when 0 samples**; check-based, not point-in-time. Paused periods excluded only if pause history is tracked (v1: document the limitation, don't fake it).
-- Latency: avg over non-null `response_time_ms` only; median/p95 via SQL `ORDER BY` + index math in Rust with a sample cap.
-- Downtime: `resolved_at − started_at`, else `now − started_at` (open).
-- Windows: `24h | 7d | 30d | custom` via `ReportWindow::from_query` (already implemented + tested).
-- Charts: SQL time-bucket aggregation (`strftime`), gaps returned as nulls.
+### Metrics (Stage 5 — implemented + tested)
+- Uptime = successful / eligible checks × 100 in window; **null (not 100%) when 0 samples**; check-based, not point-in-time. Paused periods NOT excluded (v1 documented limitation — no pause-history table).
+- Latency: avg/median/p95 computed ONLY over **successful** checks with non-null `response_time_ms`; failures never contribute (never counted as 0). Median/p95 = exact **nearest-rank** via SQL `ORDER BY response_time_ms LIMIT 1 OFFSET k` (`k = (n-1)/2` and `ceil(p·n)-1`); `null` when fewer than 2 samples.
+- Downtime: `resolved_at − started_at`, else `now − started_at` (open); counts only incidents that **started** inside the window; one open incident max per monitor is guaranteed by the partial unique index.
+- Windows: `24h | 7d | 30d | custom` via `ReportWindow::from_query` (RFC3339 `from`/`to`, inversion + format validated → 422).
+- Chart buckets: SQL-side `strftime` (hourly ≤24h windows, daily otherwise, UTC-aligned). Overview sparklines (`uptime_series`, `response_time_series`) share a **fixed 24h hourly** base so the payload is time-base consistent; windowed series live on `/reports/response-times`.
 
 ---
 
@@ -105,23 +111,45 @@ PulseWatch -- Website Uptime Monitor/
 ├── migrations/
 │   └── 0001_init.sql             # monitors, check_results, incidents, settings + indexes
 ├── backend/
-│   ├── Cargo.toml                # bin "pulsewatch"
+│   ├── Cargo.toml                # lib + bin "pulsewatch"; dev-deps: wiremock, tempfile, tower
 │   ├── src/
-│   │   ├── main.rs               # bootstrap, tracing, graceful shutdown, SIGTERM
+│   │   ├── lib.rs                # library root (shared by bin + integration tests)
+│   │   ├── main.rs               # bootstrap, tracing, safe HTTP client, graceful shutdown
 │   │   ├── config.rs             # Config::from_env, validated bounds
 │   │   ├── db.rs                 # SQLite pool (WAL, FK on), auto-migrate
 │   │   ├── error.rs              # AppError → consistent JSON envelope
 │   │   ├── state.rs              # AppState + InFlightSet
-│   │   ├── openapi.rs            # ApiDoc (utoipa)
+│   │   ├── openapi.rs            # ApiDoc (utoipa) incl. monitors paths/schemas
+│   │   ├── validation/
+│   │   │   ├── mod.rs            # re-exports
+│   │   │   └── url_validation.rs # SSRF policy, is_public_ip, DNS resolver, redirect policy, safe client
+│   │   ├── services/
+│   │   │   ├── mod.rs
+│   │   │   ├── monitoring_service.rs  # single check: SSRF DNS layer, retries, timing (tested)
+│   │   │   ├── incident_service.rs    # plan_transition + persist_check_outcome (tested)
+│   │   │   ├── retry.rs               # RetryPolicy (backoff + jitter + Retry-After, tested)
+│   │   │   ├── scheduler.rs           # 1s tick loop, atomic claim, spawn via run_check
+│   │   │   └── report_service.rs      # uptime/latency/downtime math + report assembly (unit-tested)
+│   │   ├── repositories/
+│   │   │   ├── mod.rs
+│   │   │   ├── monitor_repository.rs  # CRUD, claim_due, window_stats, latest_checks, list, status_counts, find_all
+│   │   │   ├── check_repository.rs    # insert, paginated history, window_counts, latency_stats, activity_series, recent_global
+│   │   │   └── incident_repository.rs # find_open / open / resolve_open, list_with_monitor, window_incidents, recent, find_with_monitor
 │   │   ├── routes/
-│   │   │   ├── mod.rs            # router, CORS (ALLOWED_ORIGINS), TraceLayer, swagger-ui-dist
-│   │   │   └── health.rs         # GET /health + /api/v1/health
+│   │   │   ├── mod.rs            # router, CORS, TraceLayer, swagger-ui-dist
+│   │   │   ├── health.rs         # GET /health + /api/v1/health
+│   │   │   ├── monitors.rs       # CRUD + check/pause/resume + pagination
+│   │   │   ├── checks.rs         # history (paginated + result filter), latest, summary
+│   │   │   ├── reports.rs        # overview / uptime / response-times / incidents
+│   │   │   └── incidents.rs      # incident list (filters + pagination) + detail
 │   │   └── models/
-│   │       ├── mod.rs            # ReportWindow (+ parsing, tested)
-│   │       ├── monitor.rs        # Monitor, MonitorStatus, DTOs, queries
-│   │       ├── check_result.rs   # CheckResult, CheckErrorType, CheckSummary
-│   │       └── incident.rs       # Incident, IncidentStatus, ListIncidentsQuery
-│   └── tests/                    # empty (integration tests land in Stage 3)
+│   │       ├── monitor.rs, check_result.rs, incident.rs, mod.rs (ReportWindow, parse_rfc3339)
+│   │       └── reports.rs        # Stage 5 report DTOs + ReportQuery
+│   └── tests/
+│       ├── common/mod.rs         # TestApp harness (temp DB, wiremock-friendly config)
+│       ├── monitors_api.rs       # 12 integration tests
+│       ├── reports_api.rs        # 11 integration tests (hand-computed metric assertions)
+│       └── scheduler.rs          # 4 scheduler integration tests
 └── frontend/                     # empty (scaffolded in Stage 6)
 ```
 
@@ -129,41 +157,79 @@ PulseWatch -- Website Uptime Monitor/
 - `GET /health` and `GET /api/v1/health` → `{status, service, version, database}` (503 when DB down).
 - `GET /api/v1/openapi.json` → utoipa spec.
 - **`GET /api/v1/docs`** → Swagger UI (served by `swagger-ui-dist`, spec inlined at startup).
+- **Monitors (Stage 3):**
+  - `GET /api/v1/monitors` → paginated `MonitorSummary[]` (search/filter/sort + windowed uptime enrichment).
+  - `POST /api/v1/monitors` → create (201); first check due immediately.
+  - `GET/PUT/DELETE /api/v1/monitors/{id}` (delete cascades checks + incidents).
+  - `POST /api/v1/monitors/{id}/check` → run one check now (409 when paused/already in flight).
+  - `POST /api/v1/monitors/{id}/pause|resume` (resume → `unknown`, first check due immediately).
+- **Check history (Stage 5):**
+  - `GET /api/v1/monitors/{id}/checks` → paginated `CheckSummary[]` (window, `result=success|failure`, page clamps 1..=200).
+  - `GET /api/v1/monitors/{id}/checks/latest` → newest check row (404 when the monitor has none).
+  - `GET /api/v1/monitors/{id}/checks/summary` → totals, uptime %, avg/median/p95, latest response time (nulls when no checks).
+- **Reports (Stage 5):**
+  - `GET /api/v1/reports/overview` → monitor census, uptime %, avg latency, incident stats, recent incidents/checks, fixed-24h sparklines.
+  - `GET /api/v1/reports/uptime` → per-monitor uptime + overall (null on zero checks).
+  - `GET /api/v1/reports/response-times` → per-monitor avg/median/p95 + time-bucketed series (optional `monitor_id`, 404 on unknown).
+  - `GET /api/v1/reports/incidents` → windowed incident stats + incidents (newest first).
+- **Incidents (Stage 5):**
+  - `GET /api/v1/incidents` → paginated `IncidentWithMonitor[]` (status/monitor/date filters, durations computed).
+  - `GET /api/v1/incidents/{id}` → incident + monitor + duration (404 when unknown).
 
 ### Verified so far
-- `cargo check` clean (only "not yet used" dead-code warnings, expected at this stage — will disappear as Stages 3–5 wire routes; **must be zero by Stage 7 clippy gate**).
-- `cargo test`: 19 passing — config validation, migration apply + idempotency + FK pragma, JSON error envelope (incl. no internal leakage), status/error-type round-trips, window parsing edge cases, InFlightSet duplicate prevention.
+- `cargo fmt --check` clean; `cargo clippy --all-targets --all-features -- -D warnings` clean.
+- `cargo test`: **72 passing** — 45 unit (config validation, migrations, error envelope, status/error-type round-trips, window parsing, InFlightSet, SSRF validation matrix + DNS resolver, retry policy math, incident state-machine transitions, report metric math: nearest-rank offsets, uptime null/exact, bucket granularity, bucket parse, status filter) + 27 integration (temp-file SQLite + wiremock + in-process router): CRUD round-trip + pagination, invalid-input 422s, SSRF create-denials, manual check success/404-mismatch/timeout/retry-exhaustion/DNS-block, incident open+resolve across checks, pause/resume flow, host-default naming; scheduler: restart recovery (checked once, no burst), future/paused no-claim, manual-vs-scheduled overlap → single probe + 409, loop stops on shutdown; reports: hand-computed uptime 80.0%, avg 27.5/median 25/p95 45 over 8 success samples (999-ms failures excluded), history pagination + result filter, latest, 404s, incident durations (resolved exact, open elapsed), overview census/counts, invalid windows 422, empty-installation nulls (never fabricated 100%).
+
+### Stage 3 implementation notes (gotchas hit)
+- **sqlx 0.9 `QueryBuilder`**: `push_values` emits SQLite `IN (VALUES ...)` which fails to prepare on our SQLite build; `?` characters inside `push()` strings are emitted **literally** — placeholders must come from `push_bind` interleaved between `push` calls. All dynamic SQL follows this pattern now (`push_id_list` helper in monitor_repository).
+- **sqlx 0.9 SQLite encodes `Uuid` as 16-byte BLOB** — raw SQL in tests must bind `Uuid`, never `.to_string()`.
+- **reqwest 0.13**: `dns_resolver` accepts any `Resolve` impl (blanket `IntoResolve`); error classification survives via `source()` chain markers (`BlockedTarget`, `TooManyRedirects`).
+- Crate is now a **lib + bin** (`src/lib.rs`) so `backend/tests/` integration tests can import the app; `main.rs` uses `pulsewatch_backend::…`.
+- Redirect-to-private SSRF hop is covered by unit tests of the redirect policy; the integration suite covers create-time denial + request-time DNS-layer blocking (a loopback-only wiremock cannot isolate the redirect layer when the DNS layer blocks loopback first).
+
+### Stage 5 implementation notes (gotchas hit)
+- **`sqlx::query_as::<_, (SomeStruct, …)>` does not work** — a derived-`FromRow` struct cannot be decoded inside a tuple; use a flat column tuple and construct the struct manually (`IncidentJoinRow` + `join_row_to_with_monitor` in incident_repository).
+- **`chrono::DateTime::to_rfc3339()` produces `+00:00`** — the `+` decodes as a space in query strings. Tests and any client URLs must use `to_rfc3339_opts(SecondsFormat::Secs, true)` (`Z` suffix) or percent-encode.
+- **`f64` has no `From<i64>`** — `.map(f64::from)` on `Option<i64>` fails; use `.map(|v| v as f64)` (latency medians are i64 from SQL, API serializes f64).
+- **`#[serde(flatten)]` on `IncidentWithMonitor.incident`** — incident fields appear at the top level of each array element (`data[0]["status"]`, not `data[0]["incident"]["status"]`); keep in mind for frontend shaping too.
+- **Minute-relative test seeding straddles hour buckets depending on wall-clock minute** — seed relative to `hour_start = now.with_minute(0)…` instead; also note overview sparklines are fixed-24h so checks older than the query window still appear there.
+- `Pagination::new` had to become `pub` for reuse by checks/incidents routes.
+
+### Stage 6 implementation notes (gotchas hit)
+- **RHF + `zodResolver` + zod 4 `z.coerce`**: input ≠ output types break `useForm<z.infer<…>>`. Fix: type the form as `z.output<typeof schema>` and cast `zodResolver(schema) as Resolver<FormValues>`.
+- **TS 6 deprecates `baseUrl`** — `paths` works without it; remove `baseUrl` from `tsconfig.app.json`.
+- **shadcn CLI** writes components into a literal `./@/components/ui/` directory — `mv` them under `src/`, re-point `cn` imports to `@/lib/utils`, uninstall the accidental `cn` npm package the CLI installs.
+- **NAV_ITEMS as const** with a union of objects: destructuring `{ end }` fails on members that omit the key — read `end` with `"end" in item ? item.end : false`.
+- **`AppSettings` field names are `default_*`** (`default_check_interval_seconds`, …) plus bare `max_concurrent_checks`; `SettingsUpdateResponse.restart_required` is `string[]`, not a boolean.
+- Design tokens, StatusPill, MetricCard (animated via `@number-flow/react` + `motion`), UptimeStrip, SeriesChart, PageTransition, and the ⌘K CommandPalette live under `frontend/src/components/`. Polling cadence is 30 s (lists) / 15 s (detail).
 
 ---
 
 ## Pending work
 
-### Stage 3 — Monitoring engine (NEXT)
-1. `validation/url_validation.rs`: `SsrfPolicy { allow_private: bool }`, `is_public_ip(IpAddr)`, `validate_monitor_url(&str, &SsrfPolicy)` (structure checks), `build_safe_http_client(&Config) -> reqwest::Client` (dns_resolver filter + custom redirect policy + `.no_proxy()` + user-agent; keep pooled client shared).
-   - Note: reqwest 0.13 `dns_resolver` needs a resolver implementing the `Resolve` trait; verify exact trait shape against `~/.cargo/registry/src/*/reqwest-0.13.5/` or docs.rs before writing. Resolver must do async-friendly lookup (`tokio::net::lookup_host`).
-2. `services/retry.rs`: `RetryPolicy`, `compute_backoff(attempt) -> Duration` (exponential + full jitter + cap), `should_retry(error_type, attempt)`. Unit tests for backoff math + classification.
-3. `services/monitoring_service.rs`: `run_check(monitor) -> CheckOutcome` — the single path. Reads monitor row, acquires semaphore permit, checks in-flight registry, executes attempts, persists `CheckResult` + updates monitor counters + incident transition in one tx (needs `repositories/`).
-4. `repositories/monitor_repository.rs`, `check_repository.rs`, `incident_repository.rs`: parameterized SQL, transactions. (Incident repo needs Stage 4 transition logic but base CRUD can land here.)
-5. `routes/monitors.rs`: full CRUD + `POST /{id}/check|pause|resume` wired to the service (not duplicating logic in handlers). Input validation → `AppError::Validation`. Register routes in `routes/mod.rs`, add schemas to `openapi.rs`.
-6. Integration tests in `backend/tests/`: temp-file SQLite per test, **wiremock** local server — create/update/delete, manual check success/timeout/conn-refused/404-mismatch, retry limits, SSRF denials (loopback + private + redirect-to-private), pagination, invalid input, `PULSEWATCH_ALLOW_PRIVATE_TARGETS=true` for the happy-path tests.
-7. Wire `build_safe_http_client` into `main.rs` (replace the plain `reqwest::Client::builder()` block).
+### Stage 3 — Monitoring engine: DONE
+All seven items landed: SSRF validation + safe client (`validation/url_validation.rs`), retry policy (`services/retry.rs`), single check path (`services/monitoring_service.rs`), repositories + tx-persisted incident transitions, monitors routes + OpenAPI, 12 integration tests (`backend/tests/monitors_api.rs` + `common/mod.rs` harness), client wired into `main.rs`.
 
-### Stage 4 — Scheduler + incidents
-1. `services/scheduler.rs`: spawn loop on `AppState.shutdown` token; tick 1s; load due monitors; atomic claim; spawn through semaphore + in-flight registry.
-2. Pause/resume endpoints set `enabled`/`current_status='paused'` and clear `next_check_at`; resume recomputes `next_check_at = now + interval`.
-3. Incident transition logic in `incident_service.rs` (used by both scheduler + manual checks, inside the same tx as the check result).
-4. Restart recovery test (reopen DB, overdue monitor gets checked once).
-5. Overlap-prevention test (slow wiremock response + trigger manual + scheduled concurrently → exactly one check in flight).
+### Stage 4 — Scheduler + incidents: DONE
+1. `services/scheduler.rs`: 1s tick loop on the shutdown token (`MissedTickBehavior::Delay`); `run_due_once` claims due monitors via `claim_due` (atomic SQL claim, `next_check_at = now + interval`, no catch-up burst) and spawns one task per monitor through `monitoring_service::run_check` (semaphore + in-flight registry live inside that path). Wired into `main.rs` right after state construction.
+2. ~~Pause/resume endpoints~~ — DONE in Stage 3 (`routes/monitors.rs`).
+3. ~~Incident transition logic~~ — DONE in Stage 3 (`services/incident_service.rs`, same tx as check insert).
+4. Restart recovery test — `tests/scheduler.rs::overdue_monitor_is_checked_exactly_once_after_restart`.
+5. Overlap prevention test — `tests/scheduler.rs::scheduled_and_manual_checks_never_overlap` (manual → 409 while scheduled probe in flight; exactly one HTTP request + one check row; slot released afterwards). Plus future/paused no-claim + clean-shutdown loop tests.
 
-### Stage 5 — Reports API
-1. `services/report_service.rs` + `routes/reports.rs`: `/reports/overview|uptime|response-times|incidents`, `/monitors/{id}/checks(/latest|/summary)` with pagination + date filters.
-2. SQL-side aggregation, time buckets for charts, hand-computed test cases for uptime/median/p95/downtime.
+### Stage 5 — Reports API: DONE
+All items landed:
+1. `models/reports.rs` (DTOs + `ReportQuery` with `IntoParams`), `services/report_service.rs` (uptime/nearest-rank/series/incident math + overview assembly, 6 unit tests), repositories extended (`window_counts`, `latency_stats`, `activity_series`, `recent_global`, `list_with_monitor`, `window_incidents`, `recent`, `find_with_monitor`, `status_counts`, `find_all`).
+2. Routes: `routes/checks.rs` (history/latest/summary), `routes/reports.rs` (overview/uptime/response-times/incidents), `routes/incidents.rs` (list/detail); registered in `routes/mod.rs` + `openapi.rs`.
+3. `tests/reports_api.rs`: 11 integration tests with hand-computed metric values (hour-aligned seeded checks, 999-ms failures excluded from latency, old out-of-window check, null-not-100% on empty, 404s, 422 window/filter validation, incident durations).
 
-### Stage 6 — Frontend
-1. `npm create vite@latest` (React-TS) into `frontend/`, Tailwind v4, shadcn init, React Router 7, TanStack Query, RHF+zod (`standardSchemaResolver` — verify zod 4 support in @hookform/resolvers), Recharts, lucide-react, sonner.
-2. App shell (collapsible sidebar: Overview/Monitors/Incidents/Reports/Settings, mobile sheet, topbar), dark navy/charcoal + emerald theme, light toggle.
-3. Pages: Overview (real metrics, empty states), Monitors (table/cards, search/filter/sort/pagination, actions), Monitor detail (charts, history, incidents, config, check-now/pause/resume), Incidents, Reports (windows, CSV export optional), Settings (validated defaults, restart-required explanation).
-4. Vite proxy `/api → http://localhost:3000`. Vitest + RTL tests: form validation, CRUD flows, badges, empty states, window picker, API error handling.
+### Stage 6 — Frontend: DONE (M0a–M4; M5 screenshot polish pending)
+All pages and the settings slice landed:
+1. **M0a — Settings API**: `services/settings_service.rs` (`AppSettings::load` env→DB, `update` with field validation + `restart_required`), `repositories/settings_repository.rs`, `routes/settings.rs` (GET/PUT), wired into OpenAPI; create/update monitor handlers now load `AppSettings::load` first so new monitors inherit defaults; `tests/settings_api.rs` (4 tests).
+2. **M0b — Scaffold**: Vite React-TS, Tailwind v4 (`@theme inline` navy/emerald tokens, light+dark), Geist Sans/Mono self-hosted, shadcn (button, card, dialog, dropdown-menu, form, input, label, popover, select, separator, sheet, skeleton, switch, table, tabs, tooltip, sonner, alert, textarea, alert-dialog), Vite proxy `/api` → `:3000`.
+3. **M1 — Shell**: collapsible sidebar (motion `layoutId` active indicator), mobile sheet, sticky blurred header with ⌘K search, ThemeToggle (light/dark/system), CommandPalette (monitor search + nav), PageTransition (200 ms rise), StatusPill (live ring-pulse), MetricCard (NumberFlow animated KPIs + stagger), EmptyState, UptimeStrip (staggered bars), SeriesChart (Recharts, CSS-var colors), typed `lib/api.ts` + `hooks/use-api.ts` (TanStack Query, 30 s/15 s polling, full CRUD mutations).
+4. **M2–M4 — Pages**: Overview (KPI grid, uptime strip, response chart, recent incidents/checks, teaching empty states), Monitors (search/filter/window/pagination, desktop table + mobile cards, create/edit dialog via `?new=1`, row actions check/pause/resume/delete), MonitorDetail (24h/7d/30d uptime KPIs, median/p95, response chart, uptime strip, paginated check history with result filter, config panel, edit dialog), Incidents (status + window filters, table + mobile cards), Reports (window picker, uptime table, latency percentiles with null-on-low-samples, response series, client-side CSV export), Settings (validated form, restart banner, server field-error mapping), NotFound.
+5. **M5 partial — Tests**: `npm test` → **36/36 passing** (format helpers, StatusPill, EmptyState, MetricCard, WindowPicker, monitor zod schema).
 
 ### Stage 7 — Verification
 - `cargo fmt --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test --workspace`
@@ -179,7 +245,10 @@ PulseWatch -- Website Uptime Monitor/
 
 ## Resume checklist for next session
 
-1. `cd backend && cargo test` — confirm still 19 passing before starting Stage 3.
-2. Read Stage 3 plan above; start with `validation/url_validation.rs` (pure functions + unit tests first, then the reqwest client builder).
-3. Verify reqwest `Resolve` trait shape from the vendored source in `~/.cargo/registry/src/index.crates.io-*/reqwest-0.13.5/` before writing the custom DNS resolver.
-4. Keep `df -h /` in mind; `cargo clean` if disk gets tight.
+1. **Delivery is complete** through Stage 8. No open blockers.
+2. Re-run gates if touching code:
+   - Backend: `cd backend && cargo fmt --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test` (expect 78).
+   - Frontend: `cd frontend && npm run lint && npm test && npm run build` (expect 36 tests).
+3. Dev: `npm install && npm --prefix frontend install && cp .env.example .env && npm run dev` → UI :5173, API :3000, Swagger `/api/v1/docs`.
+4. Gotchas: incident JSON is flattened; settings fields use `default_*` prefix; workspace path has a **trailing space**; `PULSEWATCH_ALLOW_PRIVATE_TARGETS=true` only for wiremock tests.
+5. Screenshots from E2E live under `/tmp/opencode/pulsewatch-shots/` (not committed).
