@@ -13,6 +13,28 @@ PulseWatch checks URLs on a schedule, records response times and HTTP status, re
 
 ---
 
+## Demo
+
+<video src="docs/linkedin-demo.mp4" poster="docs/linkedin-poster.png" controls muted playsinline width="100%"></video>
+
+[▶ Watch the 52-second walkthrough (MP4)](docs/linkedin-demo.mp4) · [Poster frame](docs/linkedin-poster.png)
+
+The clip covers the full loop: overview → add a monitor → live first check → per-attempt history → reports → settings.
+
+---
+
+## Use cases
+
+**Self-hosted uptime monitoring** — a UptimeRobot-style alternative you run yourself: watch APIs, homelab services, side projects, or client sites on your own schedule, with no per-monitor limits and no data leaving your machine. Alerts-grade raw data is exposed over REST and CSV.
+
+**Portfolio / proof-of-work for engineers** — the codebase demonstrates production concerns end-to-end: a Tokio scheduler with atomic claim semantics and graceful shutdown, a single-transaction state machine for check → counters → incident, SSRF/DNS-rebinding hardening, honest metrics that never fabricate 100%, OpenAPI docs, and a green CI gate over 115 tests.
+
+**Reference implementation for common patterns** — borrow the parts you need: axum + sqlx service/repository layering, exact nearest-rank percentiles, exponential backoff with full jitter and `Retry-After`, windowed report queries, or a React 19 + TanStack Query console with command palette and light/dark theming.
+
+**API-first integration** — everything the UI does is a REST call (`/api/v1`), so it slots into scripts, dashboards, or alerting pipelines; Swagger UI ships at `/api/v1/docs`.
+
+---
+
 ## Screenshots
 
 | Monitors | Monitor detail |
@@ -261,7 +283,7 @@ npm test
 npm run lint
 ```
 
-**Current counts:** backend **78 tests** (47 unit + 31 integration) · frontend **36 tests** · `cargo fmt` + `clippy -D warnings` clean · `oxlint` clean · production build green.
+**Current counts:** **115 tests** — backend **79 tests** (47 unit + 32 integration) · frontend **36 tests** · `cargo fmt` + `clippy -D warnings` clean · `oxlint` clean · production build green.
 
 Integration tests cover CRUD, SSRF denials, manual-check outcomes, incident open/resolve, scheduler recovery/overlap/shutdown, hand-computed report metrics, and settings validation.
 
@@ -305,4 +327,4 @@ Integration tests cover CRUD, SSRF denials, manual-check outcomes, incident open
 
 ## License
 
-See repository license file (if present). Built as a portfolio demonstration of Rust async systems + full-stack product engineering.
+[MIT](LICENSE) — built as a portfolio demonstration of Rust async systems + full-stack product engineering.
