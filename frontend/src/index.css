@@ -4,19 +4,25 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * PulseWatch design tokens.
+ * PulseWatch design tokens — "cyberpunk-infused premium observability".
  *
- * Dark (default): deep navy surface ladder — background → card → elevated —
- * separated by hairline cool borders. Emerald is the only accent and is
- * reserved for primary actions, healthy state, and selection. Light theme
- * remaps the same roles on a cool paper ground.
+ * Dark (default): layered midnight ground (#0B0F17 → #0E1420) with ambient
+ * emerald/sky radial tints; glass surfaces (slate-900 at ~60% + blur) hold a
+ * hairline white border as their only elevation. Emerald / rose / amber carry
+ * status semantics; slate carries the rest. Light theme remaps the same roles
+ * on cool paper.
+ *
+ * Intensity contract ("data calm, chrome loud"): chrome (shell, loader, empty
+ * states) may glow; tables, charts, and metrics stay quiet.
  */
 :root {
+  color-scheme: light;
+
   --background: #f5f7fb;
   --foreground: #0d1526;
-  --card: #ffffff;
+  --card: rgb(255 255 255 / 0.72);
   --card-foreground: #0d1526;
-  --popover: #ffffff;
+  --popover: rgb(255 255 255 / 0.92);
   --popover-foreground: #0d1526;
   --primary: #059669;
   --primary-foreground: #ffffff;
@@ -26,16 +32,16 @@
   --muted-foreground: #5b6b85;
   --accent: #e6f7f0;
   --accent-foreground: #065f46;
-  --destructive: #dc2626;
+  --destructive: #e11d48;
   --destructive-foreground: #ffffff;
   --border: #dce3ee;
-  --input: #dce3ee;
+  --input: #cfd8e6;
   --ring: #059669;
   --chart-1: #059669;
-  --chart-2: #0ea5e9;
-  --chart-3: #f59e0b;
-  --chart-4: #8b5cf6;
-  --chart-5: #ef4444;
+  --chart-2: #0284c7;
+  --chart-3: #d97706;
+  --chart-4: #7c3aed;
+  --chart-5: #e11d48;
   --success: #059669;
   --warning: #d97706;
   --danger: #dc2626;
@@ -45,43 +51,49 @@
   --sidebar-border: #e4e9f2;
   --sidebar-accent: #eef2f8;
   --sidebar-accent-foreground: #0d1526;
-  --radius: 0.5rem;
+  --radius: 0.75rem;
+
+  --shadow-pop: 0 16px 40px -12px rgb(15 23 42 / 0.18);
 }
 
 .dark {
-  --background: #0a1020;
-  --foreground: #e7edf7;
-  --card: #101a2e;
-  --card-foreground: #e7edf7;
-  --popover: #14203a;
-  --popover-foreground: #e7edf7;
+  color-scheme: dark;
+
+  --background: #0b0f17;
+  --foreground: #e2e8f0;
+  --card: rgb(15 23 42 / 0.58);
+  --card-foreground: #e2e8f0;
+  --popover: rgb(15 23 42 / 0.92);
+  --popover-foreground: #e2e8f0;
   --primary: #10b981;
-  --primary-foreground: #042f1e;
-  --secondary: #182542;
-  --secondary-foreground: #c7d2e5;
-  --muted: #152036;
-  --muted-foreground: #8b9bb8;
-  --accent: #0f2a33;
+  --primary-foreground: #022c22;
+  --secondary: rgb(30 41 59 / 0.6);
+  --secondary-foreground: #cbd5e1;
+  --muted: rgb(30 41 59 / 0.55);
+  --muted-foreground: #94a3b8;
+  --accent: rgb(16 185 129 / 0.1);
   --accent-foreground: #6ee7b7;
-  --destructive: #ef4444;
+  --destructive: #e11d48;
   --destructive-foreground: #ffffff;
-  --border: #1f2d4a;
-  --input: #1f2d4a;
+  --border: rgb(255 255 255 / 0.07);
+  --input: rgb(148 163 184 / 0.28);
   --ring: #10b981;
   --chart-1: #10b981;
   --chart-2: #38bdf8;
   --chart-3: #fbbf24;
   --chart-4: #a78bfa;
-  --chart-5: #f87171;
+  --chart-5: #fb7185;
   --success: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
+  --warning: #fbbf24;
+  --danger: #fb7185;
   --unknown: #94a3b8;
-  --sidebar: #0d1526;
-  --sidebar-foreground: #c7d2e5;
-  --sidebar-border: #1c2942;
-  --sidebar-accent: #152036;
-  --sidebar-accent-foreground: #e7edf7;
+  --sidebar: rgb(11 15 23 / 0.72);
+  --sidebar-foreground: #cbd5e1;
+  --sidebar-border: rgb(255 255 255 / 0.07);
+  --sidebar-accent: rgb(148 163 184 / 0.12);
+  --sidebar-accent-foreground: #f1f5f9;
+
+  --shadow-pop: 0 20px 50px -12px rgb(0 0 0 / 0.55);
 }
 
 @theme inline {
@@ -131,13 +143,56 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply text-foreground antialiased;
     font-feature-settings: "cv11", "ss01";
+    background-color: var(--background);
+  }
+  /* Layered midnight ground with ambient emerald/sky tints — the "chrome". */
+  html.dark body {
+    background-image:
+      radial-gradient(1100px 640px at 88% -8%, rgb(16 185 129 / 0.09), transparent 62%),
+      radial-gradient(900px 560px at -6% 14%, rgb(56 189 248 / 0.06), transparent 58%),
+      linear-gradient(180deg, #0b0f17 0%, #0e1420 100%);
+    background-attachment: fixed;
+  }
+  html:not(.dark) body {
+    background-image:
+      radial-gradient(1000px 600px at 90% -10%, rgb(5 150 105 / 0.06), transparent 60%),
+      linear-gradient(180deg, #f5f7fb 0%, #eef2f8 100%);
+    background-attachment: fixed;
+  }
+  /* Browser surfaces belong to the design, not to the browser. */
+  ::selection {
+    background: color-mix(in oklab, var(--primary) 32%, transparent);
+    color: var(--foreground);
+  }
+  body {
+    caret-color: var(--primary);
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in oklab, var(--muted-foreground) 45%, transparent) transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--muted-foreground) 40%, transparent);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--muted-foreground) 65%, transparent);
+    background-clip: content-box;
   }
   /* Data-dense surfaces: numbers never jitter as they update. */
   .tabular,
   table td,
-  table th {
+  table th,
+  kbd {
     font-variant-numeric: tabular-nums;
   }
 }
@@ -158,6 +213,31 @@
   }
   .text-status-paused {
     color: var(--muted-foreground);
+  }
+
+  /* Uppercase micro-label above/inside cards and columns. */
+  .label-cap {
+    @apply text-[11px] font-medium tracking-[0.14em] uppercase;
+  }
+
+  /* Glass surface: the one permitted blur, on shell/overlays only. */
+  .glass {
+    background: var(--card);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+
+  /* Floating layers carry the soft offset shadow; cards carry the border. */
+  .shadow-pop {
+    box-shadow: var(--shadow-pop);
+  }
+
+  /* Ambient canvas sits behind all content. */
+  .ambient-layer {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
   }
 }
 

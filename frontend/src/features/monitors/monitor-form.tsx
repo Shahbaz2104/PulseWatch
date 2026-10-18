@@ -39,10 +39,7 @@ interface MonitorFormDialogProps {
 
 function applyServerFieldErrors(
   error: unknown,
-  setError: <K extends keyof MonitorFormValues>(
-    name: K,
-    error: { message: string },
-  ) => void,
+  setError: <K extends keyof MonitorFormValues>(name: K, error: { message: string }) => void,
 ): boolean {
   if (!(error instanceof ApiError)) return false;
   let mapped = false;
@@ -129,9 +126,7 @@ export function MonitorFormDialog({ open, onOpenChange, editing }: MonitorFormDi
     mutation.mutate(payload, {
       onSuccess: () => {
         toast.success(isEdit ? "Monitor updated" : "Monitor created", {
-          description: isEdit
-            ? undefined
-            : "The first check runs within a few seconds.",
+          description: isEdit ? undefined : "The first check runs within a few seconds.",
         });
         onOpenChange(false);
       },

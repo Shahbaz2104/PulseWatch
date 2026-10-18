@@ -120,6 +120,18 @@ pub struct ListChecksQuery {
     pub page_size: Option<i64>,
 }
 
+/// Latency aggregates for one monitor over a window (repository row shape).
+///
+/// `median`/`p95` are exact nearest-rank values; both are `None` below 2
+/// samples. `avg` is `None` only when there are no samples at all.
+#[derive(Debug, Clone, Copy)]
+pub struct LatencyStats {
+    pub samples: i64,
+    pub avg: Option<f64>,
+    pub median: Option<i64>,
+    pub p95: Option<i64>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

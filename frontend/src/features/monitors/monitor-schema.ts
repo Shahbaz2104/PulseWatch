@@ -3,12 +3,7 @@ import { z } from "zod";
 /** Mirror of the backend's documented validation bounds. */
 export const monitorSchema = z
   .object({
-    name: z
-      .string()
-      .trim()
-      .max(100, "Must be at most 100 characters")
-      .optional()
-      .or(z.literal("")),
+    name: z.string().trim().max(100, "Must be at most 100 characters").optional().or(z.literal("")),
     url: z
       .string()
       .trim()

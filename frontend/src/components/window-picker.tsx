@@ -22,7 +22,12 @@ function toIsoLocal(date: string): string | undefined {
   return parsed.toISOString();
 }
 
-export function WindowPicker({ value, onChange, allowCustom = true, className }: WindowPickerProps) {
+export function WindowPicker({
+  value,
+  onChange,
+  allowCustom = true,
+  className,
+}: WindowPickerProps) {
   const current: Preset | "custom" =
     value.window && (PRESETS as readonly string[]).includes(value.window)
       ? (value.window as Preset)
@@ -66,7 +71,7 @@ export function WindowPicker({ value, onChange, allowCustom = true, className }:
               onChange({ ...value, window: "custom", from: toIsoLocal(event.target.value) })
             }
           />
-          <span className="text-xs text-muted-foreground">to</span>
+          <span className="text-muted-foreground text-xs">to</span>
           <Input
             type="date"
             aria-label="Window end"

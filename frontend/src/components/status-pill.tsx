@@ -47,12 +47,14 @@ interface StatusPillProps {
   degraded?: boolean;
   /** Animate the dot (check currently in flight). */
   live?: boolean;
+  /** Override the status-derived text (e.g. incidents: Open / Resolved). */
+  label?: string;
   className?: string;
 }
 
-export function StatusPill({ status, degraded, live, className }: StatusPillProps) {
+export function StatusPill({ status, degraded, live, label, className }: StatusPillProps) {
   const effective = degraded && status === "up" ? "degraded" : status;
-  const label = effective === "degraded" ? "Degraded" : STATUS_LABEL[status];
+  const text = label ?? (effective === "degraded" ? "Degraded" : STATUS_LABEL[status]);
   const key = effective as keyof typeof STATUS_CLASS;
   return (
     <span
@@ -75,13 +77,13 @@ export function StatusPill({ status, degraded, live, className }: StatusPillProp
           <span
             aria-hidden
             className={cn(
-              "absolute inset-0 rounded-full animate-ring-pulse",
+              "animate-ring-pulse absolute inset-0 rounded-full",
               effective === "degraded" ? "text-warning" : dotTone(status),
             )}
           />
         )}
       </span>
-      {label}
+      {text}
     </span>
   );
 }

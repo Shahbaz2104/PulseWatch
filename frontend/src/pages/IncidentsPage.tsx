@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle } from "lucide-react";
+import { Warning as AlertTriangle } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -121,17 +121,18 @@ export function IncidentsPage() {
                     <TableCell>
                       <Link
                         to={`/monitors/${incident.monitor_id}`}
-                        className="font-medium hover:text-primary hover:underline"
+                        className="hover:text-primary font-medium hover:underline"
                       >
                         {incident.monitor_name}
                       </Link>
-                      <p className="truncate font-mono text-xs text-muted-foreground">
+                      <p className="text-muted-foreground truncate font-mono text-xs">
                         {incident.monitor_url}
                       </p>
                     </TableCell>
                     <TableCell>
                       <StatusPill
                         status={incident.status === "open" ? "down" : "up"}
+                        label={incident.status === "open" ? "Open" : "Resolved"}
                       />
                     </TableCell>
                     <TableCell className="font-mono text-xs whitespace-nowrap">
@@ -143,7 +144,7 @@ export function IncidentsPage() {
                     <TableCell className="font-mono text-sm">
                       {formatSeconds(incident.duration_seconds)}
                     </TableCell>
-                    <TableCell className="max-w-52 truncate text-xs text-muted-foreground">
+                    <TableCell className="text-muted-foreground max-w-52 truncate text-xs">
                       {incident.failure_reason ?? "—"}
                     </TableCell>
                   </TableRow>
@@ -160,13 +161,16 @@ export function IncidentsPage() {
                   <div className="flex items-center justify-between gap-2">
                     <Link
                       to={`/monitors/${incident.monitor_id}`}
-                      className="font-medium hover:text-primary hover:underline"
+                      className="hover:text-primary font-medium hover:underline"
                     >
                       {incident.monitor_name}
                     </Link>
-                    <StatusPill status={incident.status === "open" ? "down" : "up"} />
+                    <StatusPill
+                      status={incident.status === "open" ? "down" : "up"}
+                      label={incident.status === "open" ? "Open" : "Resolved"}
+                    />
                   </div>
-                  <p className="font-mono text-xs text-muted-foreground">
+                  <p className="text-muted-foreground font-mono text-xs">
                     {formatClock(incident.started_at)} →{" "}
                     {incident.resolved_at ? formatClock(incident.resolved_at) : "ongoing"}
                   </p>
@@ -175,7 +179,7 @@ export function IncidentsPage() {
                       {formatSeconds(incident.duration_seconds)}
                     </Badge>
                     {incident.failure_reason && (
-                      <span className="truncate text-xs text-muted-foreground">
+                      <span className="text-muted-foreground truncate text-xs">
                         {incident.failure_reason}
                       </span>
                     )}
@@ -186,7 +190,7 @@ export function IncidentsPage() {
           </div>
 
           {data.pagination.total_pages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+            <div className="text-muted-foreground mt-4 flex items-center justify-between text-sm">
               <span>
                 Page {data.pagination.page} of {data.pagination.total_pages} ·{" "}
                 {data.pagination.total} incident{data.pagination.total === 1 ? "" : "s"}

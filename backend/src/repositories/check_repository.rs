@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 use sqlx::Sqlite;
 use uuid::Uuid;
 
-use crate::models::check_result::CheckResult;
+use crate::models::check_result::{CheckResult, LatencyStats};
 
 // Literal SQL: sqlx 0.9 accepts only `&'static str` (or explicitly asserted
 // safe strings) for query text.
@@ -215,6 +215,72 @@ pub async fn latency_stats(
     let p95_offset = crate::services::report_service::nearest_rank_offset(0.95, samples);
     let p95 = latency_sample_at(pool, monitor_id, start, end, p95_offset).await?;
     Ok((samples, avg, median, p95))
+}
+
+/// Latency aggregates for every monitor in one pass: sample count, average,
+/// and exact nearest-rank median/p95 per monitor.
+///
+/// Replaces per-monitor round trips (avg + count + two OFFSET fetches each)
+/// with a single scan over the `(checked_at)` index, grouped and ranked in
+/// memory. Monitors with no successful checks in the window are absent from
+/// the map.
+pub async fn latency_stats_batch(
+    pool: &sqlx::SqlitePool,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+) -> Result<std::collections::HashMap<Uuid, LatencyStats>, sqlx::Error> {
+    // Rows arrive ordered by (monitor_id, response_time_ms), so each
+    // monitor's samples are contiguous and sorted ascending.
+    let rows: Vec<(Uuid, i64)> = sqlx::query_as(
+        "SELECT monitor_id, response_time_ms FROM check_results \
+         WHERE checked_at >= ? AND checked_at < ? \
+         AND success = 1 AND response_time_ms IS NOT NULL \
+         ORDER BY monitor_id, response_time_ms",
+    )
+    .bind(start)
+    .bind(end)
+    .fetch_all(pool)
+    .await?;
+
+    let mut grouped: std::collections::HashMap<Uuid, Vec<i64>> = std::collections::HashMap::new();
+    for (monitor_id, response_time_ms) in rows {
+        grouped
+            .entry(monitor_id)
+            .or_default()
+            .push(response_time_ms);
+    }
+
+    Ok(grouped
+        .into_iter()
+        .map(|(monitor_id, samples_sorted)| {
+            let n = samples_sorted.len() as i64;
+            let avg = if n > 0 {
+                Some(samples_sorted.iter().sum::<i64>() as f64 / n as f64)
+            } else {
+                None
+            };
+            let (median, p95) = if n < 2 {
+                (None, None)
+            } else {
+                let median_index = ((n - 1) / 2) as usize;
+                let p95_index =
+                    crate::services::report_service::nearest_rank_offset(0.95, n) as usize;
+                (
+                    Some(samples_sorted[median_index]),
+                    Some(samples_sorted[p95_index]),
+                )
+            };
+            (
+                monitor_id,
+                LatencyStats {
+                    samples: n,
+                    avg,
+                    median,
+                    p95,
+                },
+            )
+        })
+        .collect())
 }
 
 /// Time-bucketed activity (hourly or daily, UTC-aligned via SQLite strftime).

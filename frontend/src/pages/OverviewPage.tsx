@@ -1,16 +1,16 @@
 import { useNavigate } from "react-router-dom";
 import {
-  Activity,
-  AlertTriangle,
+  Heartbeat,
+  Warning as AlertTriangle,
   ArrowRight,
-  CheckCircle2,
-  CircleHelp,
+  CheckCircle as CheckCircle2,
+  Question as CircleHelp,
   Gauge,
   PauseCircle,
   Plus,
   Timer,
-  TrendingUp,
-} from "lucide-react";
+  TrendUp as TrendingUp,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,7 +63,7 @@ export function OverviewPage() {
 
       {data && !hasMonitors && (
         <EmptyState
-          icon={Activity}
+          icon={Heartbeat}
           title="No monitors yet"
           description="Add your first website URL — PulseWatch starts checking immediately and the dashboard fills with real data."
           action={{ label: "Add your first monitor", onClick: () => navigate("/monitors?new=1") }}
@@ -77,7 +77,7 @@ export function OverviewPage() {
               label="Total monitors"
               value={data.monitors.total}
               format="integer"
-              icon={Activity}
+              icon={Heartbeat}
               loading={isFetching && !data}
               delay={0}
             />
@@ -135,7 +135,7 @@ export function OverviewPage() {
             <Card>
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Uptime — last 24h</CardTitle>
-                <span className="font-mono text-xs text-muted-foreground">
+                <span className="text-muted-foreground font-mono text-xs">
                   {data.incidents.outage_count} outage{data.incidents.outage_count === 1 ? "" : "s"}
                   {" · "}
                   {data.incidents.downtime_seconds > 0
@@ -145,7 +145,7 @@ export function OverviewPage() {
               </CardHeader>
               <CardContent>
                 {data.uptime_series.length === 0 ? (
-                  <p className="py-8 text-center text-sm text-muted-foreground">
+                  <p className="text-muted-foreground py-8 text-center text-sm">
                     No check activity in the last 24 hours.
                   </p>
                 ) : (
@@ -179,19 +179,19 @@ export function OverviewPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.recent_incidents.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
+                  <p className="text-muted-foreground py-6 text-center text-sm">
                     No incidents recorded — everything is running.
                   </p>
                 ) : (
                   data.recent_incidents.slice(0, 5).map((incident) => (
                     <button
                       key={incident.id}
-                      className="flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-muted/60"
+                      className="hover:bg-muted/60 flex w-full items-center justify-between gap-3 rounded-md px-2 py-1.5 text-left transition-colors"
                       onClick={() => navigate(`/monitors/${incident.monitor_id}`)}
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm font-medium">{incident.monitor_name}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-muted-foreground text-xs">
                           {formatRelative(incident.started_at)}
                           {incident.resolved_at ? "" : " · ongoing"}
                         </p>
@@ -209,11 +209,11 @@ export function OverviewPage() {
             <Card>
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Recent checks</CardTitle>
-                <Timer className="size-4 text-muted-foreground" />
+                <Timer className="text-muted-foreground size-4" />
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.recent_checks.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">
+                  <p className="text-muted-foreground py-6 text-center text-sm">
                     No checks have run yet.
                   </p>
                 ) : (
@@ -224,7 +224,7 @@ export function OverviewPage() {
                     >
                       <div className="min-w-0">
                         <p className="truncate text-sm">{check.monitor_name}</p>
-                        <p className="font-mono text-xs text-muted-foreground">
+                        <p className="text-muted-foreground font-mono text-xs">
                           {check.http_status_code
                             ? `HTTP ${check.http_status_code}`
                             : check.success
@@ -236,8 +236,8 @@ export function OverviewPage() {
                       <span
                         className={
                           check.success
-                            ? "font-mono text-xs text-status-up"
-                            : "font-mono text-xs text-status-down"
+                            ? "text-status-up font-mono text-xs"
+                            : "text-status-down font-mono text-xs"
                         }
                       >
                         {formatMs(check.response_time_ms)}
@@ -249,7 +249,7 @@ export function OverviewPage() {
             </Card>
           </div>
 
-          <p className="flex items-center gap-2 text-xs text-muted-foreground">
+          <p className="text-muted-foreground flex items-center gap-2 text-xs">
             <PauseCircle className="size-3.5" />
             Uptime is check-based (successful checks ÷ eligible checks). Paused periods are not
             excluded.

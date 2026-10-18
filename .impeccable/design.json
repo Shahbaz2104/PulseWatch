@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T16:39:52Z",
+  "title": "Design System: PulseWatch",
+  "extensions": {
+    "colorMeta": {
+      "signal-emerald": {
+        "role": "primary",
+        "displayName": "Signal Emerald",
+        "canonical": "#10b981",
+        "tonalRamp": [
+          "oklch(0.20 0.04 160)",
+          "oklch(0.30 0.08 161)",
+          "oklch(0.40 0.11 162)",
+          "oklch(0.50 0.14 163)",
+          "oklch(0.60 0.16 162)",
+          "oklch(0.70 0.15 160)",
+          "oklch(0.85 0.09 160)",
+          "oklch(0.95 0.04 160)"
+        ]
+      },
+      "alarm-rose": {
+        "role": "status",
+        "displayName": "Alarm Rose",
+        "canonical": "#fb7185",
+        "tonalRamp": [
+          "oklch(0.22 0.05 350)",
+          "oklch(0.32 0.09 352)",
+          "oklch(0.42 0.13 355)",
+          "oklch(0.52 0.17 10)",
+          "oklch(0.62 0.19 15)",
+          "oklch(0.72 0.16 18)",
+          "oklch(0.86 0.09 20)",
+          "oklch(0.95 0.04 20)"
+        ]
+      },
+      "watch-amber": {
+        "role": "status",
+        "displayName": "Watch Amber",
+        "canonical": "#fbbf24",
+        "tonalRamp": [
+          "oklch(0.24 0.05 85)",
+          "oklch(0.34 0.08 80)",
+          "oklch(0.44 0.11 75)",
+          "oklch(0.55 0.14 72)",
+          "oklch(0.66 0.16 70)",
+          "oklch(0.77 0.15 75)",
+          "oklch(0.88 0.09 85)",
+          "oklch(0.96 0.04 90)"
+        ]
+      },
+      "unknown-slate": {
+        "role": "neutral",
+        "displayName": "Unknown Slate",
+        "canonical": "#94a3b8",
+        "tonalRamp": [
+          "oklch(0.22 0.02 250)",
+          "oklch(0.31 0.02 250)",
+          "oklch(0.40 0.02 252)",
+          "oklch(0.50 0.02 253)",
+          "oklch(0.60 0.02 253)",
+          "oklch(0.71 0.02 254)",
+          "oklch(0.86 0.01 255)",
+          "oklch(0.96 0.01 255)"
+        ]
+      },
+      "midnight-ground": {
+        "role": "neutral",
+        "displayName": "Midnight Ground",
+        "canonical": "#0b0f17",
+        "tonalRamp": [
+          "oklch(0.13 0.02 255)",
+          "oklch(0.17 0.02 255)",
+          "oklch(0.21 0.03 255)",
+          "oklch(0.27 0.03 254)",
+          "oklch(0.36 0.03 254)",
+          "oklch(0.55 0.03 253)",
+          "oklch(0.78 0.02 253)",
+          "oklch(0.95 0.01 252)"
+        ]
+      },
+      "fog-text": {
+        "role": "neutral",
+        "displayName": "Fog Text",
+        "canonical": "#e2e8f0",
+        "tonalRamp": [
+          "oklch(0.20 0.02 250)",
+          "oklch(0.30 0.02 250)",
+          "oklch(0.42 0.02 251)",
+          "oklch(0.55 0.02 252)",
+          "oklch(0.68 0.02 252)",
+          "oklch(0.82 0.01 253)",
+          "oklch(0.91 0.01 253)",
+          "oklch(0.97 0.00 255)"
+        ]
+      },
+      "cool-paper": {
+        "role": "neutral",
+        "displayName": "Cool Paper",
+        "canonical": "#f5f7fb",
+        "tonalRamp": [
+          "oklch(0.20 0.02 250)",
+          "oklch(0.32 0.02 251)",
+          "oklch(0.45 0.02 252)",
+          "oklch(0.58 0.02 252)",
+          "oklch(0.72 0.01 253)",
+          "oklch(0.86 0.01 253)",
+          "oklch(0.94 0.01 254)",
+          "oklch(0.98 0.00 255)"
+        ]
+      },
+      "accent-sky": {
+        "role": "secondary",
+        "displayName": "Accent Sky",
+        "canonical": "#38bdf8",
+        "tonalRamp": [
+          "oklch(0.22 0.05 240)",
+          "oklch(0.32 0.08 238)",
+          "oklch(0.42 0.11 236)",
+          "oklch(0.53 0.14 234)",
+          "oklch(0.64 0.15 232)",
+          "oklch(0.75 0.13 230)",
+          "oklch(0.87 0.08 228)",
+          "oklch(0.96 0.04 226)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles only (20px semibold Geist, tracking −0.01em)." },
+      "title": { "displayName": "Title", "purpose": "Card and section titles (14px medium)." },
+      "body": { "displayName": "Body", "purpose": "Descriptions, table cells, list copy (14px/1.5)." },
+      "label": { "displayName": "Label cap", "purpose": "11px uppercase 0.14em micro-labels (.label-cap) above metrics and columns." },
+      "chip": { "displayName": "Chip", "purpose": "12px medium pill text for status chips and state labels." },
+      "data": { "displayName": "Data", "purpose": "Mono tabular for URLs, timestamps, table numbers." },
+      "metric": { "displayName": "Metric", "purpose": "24px mono semibold tabular KPI values." }
+    },
+    "shadows": [
+      {
+        "name": "shadow-pop",
+        "value": "0 20px 50px -12px rgb(0 0 0 / 0.55)",
+        "purpose": "Dark-theme floating layers: command palette, popovers, tooltips, dialogs. Light theme swaps to 0 16px 40px -12px rgb(15 23 42 / 0.18)."
+      },
+      {
+        "name": "glass-blur",
+        "value": "backdrop-filter: blur(16px) saturate(140%)",
+        "purpose": "Shell surfaces only (sidebar, header, mobile sheet). Never behind data."
+      },
+      {
+        "name": "focus-ring",
+        "value": "outline: 2px solid var(--ring); outline-offset: 2px",
+        "purpose": "Global focus-visible treatment; buttons add a 3px ring at 50% alpha."
+      }
+    ],
+    "motion": [
+      { "name": "ease-enter", "value": "cubic-bezier(0.21, 0.47, 0.32, 0.98)", "purpose": "Card/metric entrance (0.28s, staggered by delay)." },
+      { "name": "ease-spring-ring", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "ring-pulse keyframe (1.8s loop) and soft expansions." },
+      { "name": "spring-nav", "value": "stiffness: 420, damping: 34", "purpose": "Active sidebar indicator slide (framer layoutId)." },
+      { "name": "duration-fast", "value": "160ms ease", "purpose": "card-hover border/background shift; no lift, no shadow." },
+      { "name": "boot-hold", "value": "delay 1.15s then 0.4–0.55s exit", "purpose": "Session-once boot curtain timeline (GSAP); click skips." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single commit action (Add monitor, Save). Emerald fill, dark-green text.",
+      "html": "<button class=\"ds-btn-primary\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><path d=\"M12 5v14\"/><path d=\"M5 12h14\"/></svg>Add monitor</button>",
+      "css": ".ds-btn-primary { display:inline-flex; align-items:center; gap:8px; height:36px; padding:8px 16px; border-radius:10px; border:none; background:#10b981; color:#022c22; font:500 14px/1 \"Geist Variable\", ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition:filter 160ms ease, transform 160ms ease; } .ds-btn-primary:hover { filter:brightness(1.07); } .ds-btn-primary:active { transform:translateY(1px); } .ds-btn-primary:focus-visible { outline:2px solid #10b981; outline-offset:2px; box-shadow:0 0 0 3px rgb(16 185 129 / 0.5); } .ds-btn-primary:disabled { opacity:0.5; cursor:not-allowed; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Secondary actions and pagination (Previous/Next, Export CSV).",
+      "html": "<button class=\"ds-btn-outline\">Previous</button>",
+      "css": ".ds-btn-outline { display:inline-flex; align-items:center; justify-content:center; gap:6px; height:32px; padding:8px 12px; border-radius:10px; background:transparent; color:#e2e8f0; border:1px solid rgb(255 255 255 / 0.07); font:500 14px/1 \"Geist Variable\", ui-sans-serif, system-ui, sans-serif; cursor:pointer; transition:background-color 160ms ease, border-color 160ms ease; } .ds-btn-outline:hover { background:rgb(148 163 184 / 0.12); } .ds-btn-outline:focus-visible { outline:2px solid #10b981; outline-offset:2px; } .ds-btn-outline:disabled { opacity:0.5; cursor:not-allowed; }"
+    },
+    {
+      "name": "Ghost Icon Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Header icon actions (⌘K search, theme, collapse). Muted icon, chrome-only.",
+      "html": "<button class=\"ds-btn-ghost\" aria-label=\"Search\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg></button>",
+      "css": ".ds-btn-ghost { display:inline-flex; align-items:center; justify-content:center; width:36px; height:36px; border-radius:10px; background:transparent; color:#94a3b8; border:none; cursor:pointer; transition:background-color 160ms ease, color 160ms ease; } .ds-btn-ghost:hover { background:rgb(148 163 184 / 0.12); color:#e2e8f0; } .ds-btn-ghost:focus-visible { outline:2px solid #10b981; outline-offset:2px; }"
+    },
+    {
+      "name": "Input / Search Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Translucent field on the dark ground; emerald border + ring on focus.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Filter by name or URL\" />",
+      "css": ".ds-input { height:36px; padding:8px 12px; border-radius:10px; background:rgb(15 23 42 / 0.58); color:#e2e8f0; border:1px solid rgb(148 163 184 / 0.28); font:400 14px/1.5 \"Geist Variable\", ui-sans-serif, system-ui, sans-serif; outline:none; transition:border-color 160ms ease, box-shadow 160ms ease; width:100%; } .ds-input::placeholder { color:#94a3b8; } .ds-input:focus { border-color:#10b981; box-shadow:0 0 0 3px rgb(16 185 129 / 0.35); } .ds-input:disabled { opacity:0.5; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Hairline-first surface. Never rests on a shadow; hover brightens the border toward emerald.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-label-cap\">Uptime</p><p class=\"ds-card-value\">78.86%</p><p class=\"ds-card-hint\">Last 24 hours</p></div>",
+      "css": ".ds-card { border-radius:12px; border:1px solid rgb(255 255 255 / 0.07); background:rgb(15 23 42 / 0.58); color:#e2e8f0; padding:16px; transition:border-color 160ms ease, background-color 160ms ease; } .ds-card:hover { border-color:color-mix(in oklab, #10b981 32%, rgb(255 255 255 / 0.07)); } .ds-label-cap { font:500 11px/1.4 \"Geist Variable\", ui-sans-serif, system-ui, sans-serif; letter-spacing:0.14em; text-transform:uppercase; color:#94a3b8; margin:0; } .ds-card-value { font:600 24px/1.2 \"Geist Mono Variable\", ui-monospace, monospace; font-variant-numeric:tabular-nums; margin:6px 0 0; } .ds-card-hint { font:400 12px/1.4 \"Geist Variable\", ui-sans-serif, system-ui, sans-serif; color:#94a3b8; margin:4px 0 0; }"
+    },
+    {
+      "name": "Navigation Item",
+      "kind": "nav",
+      "refersTo": "nav-item",
+      "description": "Sidebar row; active state adds emerald tint plus a 2px left bar (never color alone).",
+      "html": "<a class=\"ds-nav-item is-active\" href=\"#\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg><span>Overview</span></a>",
+      "css": ".ds-nav-item { position:relative; display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; color:rgb(203 213 225 / 0.7); text-decoration:none; font:500 14px/1 \"Geist Variable\", ui-sans-serif, system-ui, sans-serif; transition:background-color 160ms ease, color 160ms ease; } .ds-nav-item:hover { background:rgb(148 163 184 / 0.12); color:#f1f5f9; } .ds-nav-item.is-active { background:rgb(148 163 184 / 0.12); color:#f1f5f9; } .ds-nav-item.is-active::before { content:\"\"; position:absolute; left:-8px; top:6px; bottom:6px; width:2px; border-radius:2px; background:#10b981; } .ds-nav-item:focus-visible { outline:2px solid #10b981; outline-offset:2px; }"
+    },
+    {
+      "name": "Status Pill",
+      "kind": "chip",
+      "refersTo": "status-pill",
+      "description": "Full-pill check state with a pulsing dot; tone comes from the status token only.",
+      "html": "<span class=\"ds-status-pill ds-status-pill--up\"><span class=\"ds-status-dot\"></span>Up</span>",
+      "css": "@keyframes ds-ring-pulse { 0% { box-shadow:0 0 0 0 currentColor; opacity:0.45; } 70% { box-shadow:0 0 0 5px transparent; opacity:0; } 100% { box-shadow:0 0 0 0 transparent; opacity:0; } } .ds-status-pill { display:inline-flex; align-items:center; gap:6px; padding:2px 8px; border-radius:9999px; border:1px solid rgb(255 255 255 / 0.07); background:rgb(30 41 59 / 0.55); font:500 12px/1.4 \"Geist Variable\", ui-sans-serif, system-ui, sans-serif; } .ds-status-dot { position:relative; width:6px; height:6px; border-radius:9999px; background:currentColor; } .ds-status-pill--up { color:#10b981; } .ds-status-pill--down { color:#fb7185; } .ds-status-pill--degraded { color:#fbbf24; } .ds-status-pill--unknown { color:#94a3b8; } .ds-status-pill--up .ds-status-dot, .ds-status-pill--down .ds-status-dot { animation:ds-ring-pulse 1.8s cubic-bezier(0.16, 1, 0.3, 1) infinite; }"
+    },
+    {
+      "name": "Label Cap",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "The 11px uppercase micro-label that opens every metric and column group.",
+      "html": "<span class=\"ds-label-cap\">Total monitors</span>",
+      "css": ".ds-label-cap { font:500 11px/1.4 \"Geist Variable\", ui-sans-serif, system-ui, sans-serif; letter-spacing:0.14em; text-transform:uppercase; color:#94a3b8; }"
+    },
+    {
+      "name": "Uptime Strip",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "Signature 24-slot hourly strip. Muted slots mean no checks — silence is never colored.",
+      "html": "<div class=\"ds-strip\"><i class=\"s-up\"></i><i class=\"s-up\"></i><i class=\"s-none\"></i><i class=\"s-none\"></i><i class=\"s-none\"></i><i class=\"s-warn\"></i><i class=\"s-warn\"></i><i class=\"s-down\"></i><i class=\"s-down\"></i></div>",
+      "css": ".ds-strip { display:flex; gap:2px; align-items:stretch; height:44px; } .ds-strip i { flex:1 1 0; border-radius:4px; } .ds-strip .s-up { background:#10b981; } .ds-strip .s-warn { background:#fbbf24; } .ds-strip .s-down { background:#fb7185; } .ds-strip .s-none { background:rgb(30 41 59 / 0.85); border:1px solid rgb(255 255 255 / 0.05); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Midnight Control Room",
+    "overview": "PulseWatch looks like an operator's console kept at 3am: a layered midnight ground with slow ambient light, glass chrome that holds still, and instruments that tell the truth. The intensity contract is \"data calm, chrome loud\" — the shell (rails, backdrop wash, boot sequence, empty states) is allowed atmosphere and glow, while tables, charts, and metrics stay quiet, dense, and monospace-precise. Saturation is earned only by state: emerald means up, rose means down, amber means degraded; everything else is slate.\n\nThe system rejects both marketing gloss and raw utilitarian gray. It is cyberpunk-infused through material (layered dark gradients, hairline glass, a slow aurora wash, a wireframe-orb boot) rather than through neon overload — the brief's pinned direction, applied with restraint. Light theme is a first-class remap of the same roles on cool paper, not an afterthought. Depth is declared once: cards declare elevation with a hairline border, floating layers declare it with a soft offset shadow, and nothing doubles up.",
+    "keyCharacteristics": [
+      "Hairline-first elevation: borders carry structure; `shadow-pop` is reserved for floating layers only.",
+      "Status palette as the only loud color; chrome stays monochrome slate/emerald accents.",
+      "Geist + Geist Mono with tabular numerals everywhere numbers live.",
+      "Instrument density: 11px uppercase micro-labels, 12px radii, 16–24px rhythm.",
+      "One signature ambient layer (canvas aurora) + one signature data component (the padded uptime strip)."
+    ],
+    "rules": [
+      { "name": "The Status-Voice Rule", "body": "Saturated color appears only where it carries check state (up/degraded/down/unknown) or the single primary action. If a screen has three colors, two of them are probably lying.", "section": "colors" },
+      { "name": "The Chrome-Atmosphere Rule", "body": "Gradients, aurora, and blur belong to the shell layer (body, sidebar, header, overlays, boot) — never behind a data table or chart. Data areas sit on flat card surfaces.", "section": "colors" },
+      { "name": "The Tabular Rule", "body": "Any number that can change in place — metrics, table columns, durations — renders with `font-variant-numeric: tabular-nums`. Jittering digits read as unreliable data.", "section": "typography" },
+      { "name": "The Declare-Elevation-Once Rule", "body": "Cards get a border and never a shadow; floating layers get `shadow-pop` and never a border-as-lift. Mixing both on one surface is banned — it is how dashboards start looking like sticker books.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do keep resting surfaces shadow-free — hairline border + translucent fill declare elevation.",
+      "Do reserve saturated emerald/rose/amber for check state and the single primary action.",
+      "Do render every mutable number with tabular numerals (`.tabular`, mono, `font-variant-numeric`).",
+      "Do pad uptime/history series to their full window with explicit \"no checks\" slots.",
+      "Do show long report tables paginated at 20 rows with a count footer.",
+      "Do keep `.label-cap` at 11px/0.14em uppercase, 3–4 words maximum.",
+      "Do use `shadow-pop` on floating layers (palette, popovers, tooltips, dialogs)."
+    ],
+    "donts": [
+      "Don't put a drop shadow on a card, or a hairline-lift on a floating layer — pick one elevation language per surface.",
+      "Don't use blur/glass behind data tables or charts; atmosphere belongs to the shell.",
+      "Don't introduce chart colors outside the token set (emerald, sky, amber, violet, rose are the whole alphabet).",
+      "Don't animate digits in a way that reflows their box, or drop `tabular-nums` from live numbers.",
+      "Don't use status hues as decorative accents, hover colors, or section backgrounds.",
+      "Don't show raw enum values (states, UUIDs) where labeled words belong — breadcrumb \"Monitor\", pill \"Open\"."
+    ]
+  }
+}

@@ -1,17 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Activity } from "lucide-react";
+import { Heartbeat } from "@phosphor-icons/react";
 import { EmptyState } from "@/components/empty-state";
 
 describe("EmptyState", () => {
   it("renders the teaching title and description", () => {
     render(
-      <EmptyState
-        icon={Activity}
-        title="No monitors yet"
-        description="Add your first URL."
-      />,
+      <EmptyState icon={Heartbeat} title="No monitors yet" description="Add your first URL." />,
     );
     expect(screen.getByText("No monitors yet")).toBeInTheDocument();
     expect(screen.getByText("Add your first URL.")).toBeInTheDocument();
@@ -21,7 +17,7 @@ describe("EmptyState", () => {
     const onClick = vi.fn();
     render(
       <EmptyState
-        icon={Activity}
+        icon={Heartbeat}
         title="Nothing here"
         description="…"
         action={{ label: "Add monitor", onClick }}
@@ -32,7 +28,7 @@ describe("EmptyState", () => {
   });
 
   it("hides the action button when none is provided", () => {
-    render(<EmptyState icon={Activity} title="Empty" description="…" />);
+    render(<EmptyState icon={Heartbeat} title="Empty" description="…" />);
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 });

@@ -10,16 +10,16 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import {
-  Activity,
-  AlertTriangle,
-  BarChart3,
+  Heartbeat,
+  Warning as AlertTriangle,
+  ChartBar as BarChart3,
   BookOpen,
-  LayoutDashboard,
+  SquaresFour as LayoutDashboard,
   Moon,
   Plus,
-  Settings,
+  Gear as Settings,
   Sun,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { useTheme } from "next-themes";
 import { useMonitors } from "@/hooks/use-api";
 
@@ -66,7 +66,7 @@ export function CommandPalette() {
             <LayoutDashboard /> Overview
           </CommandItem>
           <CommandItem onSelect={() => go("/monitors")}>
-            <Activity /> Monitors
+            <Heartbeat /> Monitors
           </CommandItem>
           <CommandItem onSelect={() => go("/incidents")}>
             <AlertTriangle /> Incidents
@@ -108,9 +108,9 @@ export function CommandPalette() {
                   value={`${monitor.name} ${monitor.url}`}
                   onSelect={() => go(`/monitors/${monitor.id}`)}
                 >
-                  <Activity />
+                  <Heartbeat />
                   <span>{monitor.name}</span>
-                  <span className="ml-2 truncate font-mono text-xs text-muted-foreground">
+                  <span className="text-muted-foreground ml-2 truncate font-mono text-xs">
                     {monitor.url}
                   </span>
                 </CommandItem>

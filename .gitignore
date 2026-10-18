@@ -19,3 +19,6 @@ frontend/dist/
 .vscode/
 .DS_Store
 *.swp
+
+# Stray lockfiles from root-level npx runs
+/package-lock.json

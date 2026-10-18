@@ -2,15 +2,15 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  CheckCircle2,
+  CheckCircle as CheckCircle2,
   Eye,
-  Loader2,
-  MoreHorizontal,
+  CircleNotch as Loader2,
+  DotsThree as MoreHorizontal,
   Pause,
   Pencil,
   Play,
-  Trash2,
-} from "lucide-react";
+  Trash as Trash2,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -118,10 +118,7 @@ export function MonitorActions({ monitor, onEdit }: MonitorActionsProps) {
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onSelect={() => setConfirmDelete(true)}
-          >
+          <DropdownMenuItem variant="destructive" onSelect={() => setConfirmDelete(true)}>
             <Trash2 /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -132,8 +129,8 @@ export function MonitorActions({ monitor, onEdit }: MonitorActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete “{monitor.name}”?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the monitor along with its check history and incidents.
-              This cannot be undone.
+              This permanently removes the monitor along with its check history and incidents. This
+              cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

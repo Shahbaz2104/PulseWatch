@@ -42,16 +42,14 @@ async function parseBody(response: Response): Promise<unknown> {
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/v1${path}`, {
     headers:
-      init?.body != null
-        ? { "Content-Type": "application/json", ...init?.headers }
-        : init?.headers,
+      init?.body != null ? { "Content-Type": "application/json", ...init?.headers } : init?.headers,
     ...init,
   });
   const body = await parseBody(response);
   if (!response.ok) {
-    const envelope = body as
-      | { error?: { code?: string; message?: string; details?: ApiFieldError[] } }
-      | null;
+    const envelope = body as {
+      error?: { code?: string; message?: string; details?: ApiFieldError[] };
+    } | null;
     throw new ApiError(
       response.status,
       envelope?.error?.code ?? "unknown",

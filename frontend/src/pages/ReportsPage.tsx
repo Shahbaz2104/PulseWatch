@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { BarChart3, Download } from "lucide-react";
+import { ChartBar as BarChart3, Download } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,7 +24,14 @@ import type { WindowQuery } from "@/types/api";
 
 /** Download the current uptime table as CSV (client-side, no backend work). */
 function exportUptimeCsv(
-  rows: Array<{ name: string; url: string; status: string; checks: number; successes: number; uptime: string }>,
+  rows: Array<{
+    name: string;
+    url: string;
+    status: string;
+    checks: number;
+    successes: number;
+    uptime: string;
+  }>,
   windowLabel: string,
 ) {
   const header = ["monitor", "url", "status", "checks", "successes", "uptime_percent"];
@@ -45,6 +52,8 @@ function exportUptimeCsv(
 
 export function ReportsPage() {
   const [windowQuery, setWindowQuery] = useState<WindowQuery>({ window: "7d" });
+  const [uptimePage, setUptimePage] = useState(1);
+  const [timesPage, setTimesPage] = useState(1);
   const windowLabel = windowQuery.window ?? "custom";
 
   const uptime = useUptimeReport(windowQuery);
@@ -53,6 +62,19 @@ export function ReportsPage() {
 
   const isLoading = uptime.isLoading || times.isLoading || incidentReport.isLoading;
   const hasMonitors = (uptime.data?.monitors.length ?? 0) > 0;
+
+  // Both report tables return every monitor; at 100+ monitors a single table
+  // becomes a scroll wall, so each paginates client-side (20 rows/page,
+  // matching Monitors). Pages clamp when the window changes.
+  const uptimeRows = uptime.data?.monitors ?? [];
+  const uptimeTotal = Math.max(1, Math.ceil(uptimeRows.length / 20));
+  const uptimeIndex = Math.min(uptimePage, uptimeTotal);
+  const uptimeSlice = uptimeRows.slice((uptimeIndex - 1) * 20, uptimeIndex * 20);
+
+  const timesRows = times.data?.monitors ?? [];
+  const timesTotal = Math.max(1, Math.ceil(timesRows.length / 20));
+  const timesIndex = Math.min(timesPage, timesTotal);
+  const timesSlice = timesRows.slice((timesIndex - 1) * 20, timesIndex * 20);
 
   const csvRows =
     uptime.data?.monitors.map((row) => ({
@@ -149,16 +171,16 @@ export function ReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {uptime.data.monitors.map((row) => (
+                    {uptimeSlice.map((row) => (
                       <TableRow key={row.monitor_id}>
                         <TableCell>
                           <Link
                             to={`/monitors/${row.monitor_id}`}
-                            className="font-medium hover:text-primary hover:underline"
+                            className="hover:text-primary font-medium hover:underline"
                           >
                             {row.name}
                           </Link>
-                          <p className="truncate font-mono text-xs text-muted-foreground">
+                          <p className="text-muted-foreground truncate font-mono text-xs">
                             {row.url}
                           </p>
                         </TableCell>
@@ -175,15 +197,39 @@ export function ReportsPage() {
                   </TableBody>
                 </Table>
               </div>
+              {uptimeTotal > 1 && (
+                <div className="text-muted-foreground mt-4 flex items-center justify-between text-sm">
+                  <span>
+                    Page {uptimeIndex} of {uptimeTotal} · {uptimeRows.length} monitor
+                    {uptimeRows.length === 1 ? "" : "s"}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={uptimeIndex <= 1}
+                      onClick={() => setUptimePage(Math.max(1, uptimeIndex - 1))}
+                    >
+                      Previous
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={uptimeIndex >= uptimeTotal}
+                      onClick={() => setUptimePage(uptimeIndex + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-medium">
-                  Response time — {windowLabel}
-                </CardTitle>
+                <CardTitle className="text-sm font-medium">Response time — {windowLabel}</CardTitle>
               </CardHeader>
               <CardContent>
                 <SeriesChart buckets={times.data?.series ?? []} height={200} />
@@ -207,7 +253,7 @@ export function ReportsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {times.data?.monitors.map((row) => (
+                      {timesSlice.map((row) => (
                         <TableRow key={row.monitor_id}>
                           <TableCell className="font-medium">{row.name}</TableCell>
                           <TableCell className="font-mono text-sm">{row.samples}</TableCell>
@@ -220,7 +266,10 @@ export function ReportsPage() {
                           </TableCell>
                           <TableCell className="font-mono text-sm">
                             {row.samples < 2 ? (
-                              <span className="text-muted-foreground" title="Needs at least 2 samples">
+                              <span
+                                className="text-muted-foreground"
+                                title="Needs at least 2 samples"
+                              >
                                 —
                               </span>
                             ) : (
@@ -239,7 +288,33 @@ export function ReportsPage() {
                     </TableBody>
                   </Table>
                 </div>
-                <p className="mt-3 text-xs text-muted-foreground">
+                {timesTotal > 1 && (
+                  <div className="text-muted-foreground mt-4 flex items-center justify-between text-sm">
+                    <span>
+                      Page {timesIndex} of {timesTotal} · {timesRows.length} monitor
+                      {timesRows.length === 1 ? "" : "s"}
+                    </span>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={timesIndex <= 1}
+                        onClick={() => setTimesPage(Math.max(1, timesIndex - 1))}
+                      >
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={timesIndex >= timesTotal}
+                        onClick={() => setTimesPage(timesIndex + 1)}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <p className="text-muted-foreground mt-3 text-xs">
                   Median and p95 use exact nearest-rank over successful checks; fewer than two
                   samples shows “—” instead of a fabricated value.
                 </p>

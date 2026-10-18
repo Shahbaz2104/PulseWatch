@@ -146,16 +146,13 @@ pub async fn overview(state: &AppState, window: ReportWindow) -> Result<Overview
     // 24 hours"), independent of the selected window.
     let spark_end = Utc::now();
     let spark_start = spark_end - chrono::Duration::hours(24);
-    let uptime_series = to_time_buckets(
-        check_repository::activity_series(&state.pool, None, spark_start, spark_end, false).await?,
-    )?;
-
     // Both sparklines share the same fixed 24h hourly base so the overview
     // payload stays time-base consistent; windowed series live on
-    // /reports/response-times instead.
-    let response_time_series = to_time_buckets(
-        check_repository::activity_series(&state.pool, None, spark_start, spark_end, false).await?,
-    )?;
+    // /reports/response-times instead. One query feeds both fields.
+    let spark_rows =
+        check_repository::activity_series(&state.pool, None, spark_start, spark_end, false).await?;
+    let uptime_series = to_time_buckets(spark_rows.clone())?;
+    let response_time_series = to_time_buckets(spark_rows)?;
 
     Ok(OverviewReport {
         window,
@@ -234,20 +231,26 @@ pub async fn response_times(
         None => monitor_repository::find_all(&state.pool).await?,
     };
 
-    let mut per_monitor = Vec::with_capacity(monitors.len());
-    for monitor in monitors {
-        let (samples, avg, median, p95) =
-            check_repository::latency_stats(&state.pool, monitor.id, window.start, window.end)
-                .await?;
-        per_monitor.push(MonitorResponseTimes {
-            monitor_id: monitor.id,
-            name: monitor.name,
-            samples,
-            avg_response_time_ms: avg,
-            median_response_time_ms: median.map(|value| value as f64),
-            p95_response_time_ms: p95.map(|value| value as f64),
-        });
-    }
+    // One query for all monitors — per-monitor round trips (avg, count,
+    // median, p95) made this endpoint ~400 queries and >1.5s at 100 monitors.
+    let stats =
+        check_repository::latency_stats_batch(&state.pool, window.start, window.end).await?;
+    let per_monitor: Vec<MonitorResponseTimes> = monitors
+        .into_iter()
+        .map(|monitor| {
+            let stats = stats.get(&monitor.id);
+            MonitorResponseTimes {
+                monitor_id: monitor.id,
+                name: monitor.name,
+                samples: stats.map_or(0, |stats| stats.samples),
+                avg_response_time_ms: stats.and_then(|stats| stats.avg),
+                median_response_time_ms: stats
+                    .and_then(|stats| stats.median)
+                    .map(|value| value as f64),
+                p95_response_time_ms: stats.and_then(|stats| stats.p95).map(|value| value as f64),
+            }
+        })
+        .collect();
 
     let daily = bucket_daily(&window);
     let series = to_time_buckets(

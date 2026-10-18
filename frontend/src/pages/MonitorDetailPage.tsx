@@ -2,18 +2,18 @@ import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  Activity,
+  Heartbeat,
   ArrowLeft,
-  CheckCircle2,
+  CheckCircle as CheckCircle2,
   Clock,
   Gauge,
-  Loader2,
+  CircleNotch as Loader2,
   Pause,
   Pencil,
   Play,
   Timer,
-  TrendingUp,
-} from "lucide-react";
+  TrendUp as TrendingUp,
+} from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,7 +72,10 @@ function ConfigPanel({ monitor }: { monitor: NonNullable<ReturnType<typeof useMo
       <CardContent>
         <dl className="grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
           {rows.map(([label, value]) => (
-            <div key={label} className="flex items-center justify-between gap-2 border-b py-1.5 last:border-0">
+            <div
+              key={label}
+              className="flex items-center justify-between gap-2 border-b py-1.5 last:border-0"
+            >
               <dt className="text-muted-foreground">{label}</dt>
               <dd className="font-mono">{value}</dd>
             </div>
@@ -136,7 +139,7 @@ export function MonitorDetailPage() {
     const notFound = monitorQuery.error instanceof ApiError && monitorQuery.error.status === 404;
     return (
       <EmptyState
-        icon={Activity}
+        icon={Heartbeat}
         title={notFound ? "Monitor not found" : "Couldn't load this monitor"}
         description={
           notFound
@@ -156,7 +159,7 @@ export function MonitorDetailPage() {
       <div className="mb-4">
         <Link
           to="/monitors"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs transition-colors"
         >
           <ArrowLeft className="size-3.5" /> Monitors
         </Link>
@@ -172,7 +175,7 @@ export function MonitorDetailPage() {
               live={actionPending}
             />
           </div>
-          <p className="mt-1 font-mono text-sm break-all text-muted-foreground">{monitor.url}</p>
+          <p className="text-muted-foreground mt-1 font-mono text-sm break-all">{monitor.url}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
@@ -223,11 +226,7 @@ export function MonitorDetailPage() {
             }
             disabled={paused || actionPending}
           >
-            {checkNow.isPending ? (
-              <Loader2 className="size-4 animate-spin" />
-            ) : (
-              <CheckCircle2 />
-            )}
+            {checkNow.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 />}
             Check now
           </Button>
         </div>
@@ -296,7 +295,7 @@ export function MonitorDetailPage() {
           <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Response time — 24h</CardTitle>
             {series.data && (
-              <span className="font-mono text-xs text-muted-foreground">
+              <span className="text-muted-foreground font-mono text-xs">
                 bucket: {series.data.bucket}
               </span>
             )}
@@ -320,7 +319,7 @@ export function MonitorDetailPage() {
               <UptimeStrip buckets={series.data?.series ?? []} />
             )}
             {activeBucket && (
-              <p className="mt-2 font-mono text-xs text-muted-foreground">
+              <p className="text-muted-foreground mt-2 font-mono text-xs">
                 last bucket: {activeBucket.successes}/{activeBucket.checks} checks ·{" "}
                 {formatPercent(activeBucket.uptime_percent)}
               </p>
@@ -358,7 +357,7 @@ export function MonitorDetailPage() {
           {checks.isLoading ? (
             <Skeleton className="h-48" />
           ) : history.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
+            <p className="text-muted-foreground py-8 text-center text-sm">
               {resultFilter === "all"
                 ? "No checks recorded in the last 30 days."
                 : `No ${resultFilter} checks in the last 30 days.`}
@@ -397,7 +396,7 @@ export function MonitorDetailPage() {
                         {formatMs(check.response_time_ms)}
                       </TableCell>
                       <TableCell className="font-mono text-sm">{check.attempt_count}</TableCell>
-                      <TableCell className="max-w-56 truncate text-xs text-muted-foreground">
+                      <TableCell className="text-muted-foreground max-w-56 truncate text-xs">
                         {check.error_message ?? check.error_type ?? "—"}
                       </TableCell>
                     </TableRow>
@@ -407,7 +406,7 @@ export function MonitorDetailPage() {
             </div>
           )}
           {checks.data && checks.data.pagination.total_pages > 1 && (
-            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+            <div className="text-muted-foreground mt-3 flex items-center justify-between text-xs">
               <span>
                 Page {checks.data.pagination.page} of {checks.data.pagination.total_pages}
               </span>

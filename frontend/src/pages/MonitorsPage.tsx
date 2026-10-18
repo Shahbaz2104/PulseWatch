@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Activity, Plus, Search } from "lucide-react";
+import { Heartbeat, Plus, MagnifyingGlass as Search } from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,29 +44,25 @@ function MonitorRow({ monitor, onEdit }: { monitor: MonitorSummary; onEdit: () =
       <TableCell onClick={(event) => event.stopPropagation()}>
         <a
           href={`/monitors/${monitor.id}`}
-          className="font-medium hover:text-primary hover:underline"
+          className="hover:text-primary font-medium hover:underline"
         >
           {monitor.name}
         </a>
-        <p className="truncate font-mono text-xs text-muted-foreground">{monitor.url}</p>
+        <p className="text-muted-foreground truncate font-mono text-xs">{monitor.url}</p>
       </TableCell>
       <TableCell>
         <StatusPill status={monitor.current_status} degraded={monitor.degraded} />
       </TableCell>
-      <TableCell className="font-mono text-sm">
-        {monitor.latest_http_status ?? "—"}
-      </TableCell>
+      <TableCell className="font-mono text-sm">{monitor.latest_http_status ?? "—"}</TableCell>
       <TableCell className="font-mono text-sm">
         {formatMs(monitor.latest_response_time_ms)}
       </TableCell>
-      <TableCell className="font-mono text-sm">
-        {formatPercent(monitor.uptime_percent)}
-      </TableCell>
+      <TableCell className="font-mono text-sm">{formatPercent(monitor.uptime_percent)}</TableCell>
       <TableCell className="font-mono text-sm">{monitor.check_interval_seconds}s</TableCell>
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className="text-muted-foreground text-sm">
         {formatRelative(monitor.last_checked_at)}
       </TableCell>
-      <TableCell className="text-sm text-muted-foreground">
+      <TableCell className="text-muted-foreground text-sm">
         {formatRelative(monitor.next_check_at)}
       </TableCell>
       <TableCell onClick={(event) => event.stopPropagation()}>
@@ -84,12 +80,12 @@ function MonitorCard({ monitor, onEdit }: { monitor: MonitorSummary; onEdit: () 
           <div className="min-w-0">
             <a
               href={`/monitors/${monitor.id}`}
-              className="font-medium hover:text-primary hover:underline"
+              className="hover:text-primary font-medium hover:underline"
               onClick={(event) => event.stopPropagation()}
             >
               {monitor.name}
             </a>
-            <p className="truncate font-mono text-xs text-muted-foreground">{monitor.url}</p>
+            <p className="text-muted-foreground truncate font-mono text-xs">{monitor.url}</p>
           </div>
           <div onClick={(event) => event.stopPropagation()}>
             <MonitorActions monitor={monitor} onEdit={onEdit} />
@@ -97,13 +93,13 @@ function MonitorCard({ monitor, onEdit }: { monitor: MonitorSummary; onEdit: () 
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
           <StatusPill status={monitor.current_status} degraded={monitor.degraded} />
-          <span className="font-mono text-muted-foreground">
+          <span className="text-muted-foreground font-mono">
             {formatMs(monitor.latest_response_time_ms)}
           </span>
-          <span className="font-mono text-muted-foreground">
+          <span className="text-muted-foreground font-mono">
             {formatPercent(monitor.uptime_percent)} uptime
           </span>
-          <span className="font-mono text-muted-foreground">
+          <span className="text-muted-foreground font-mono">
             every {monitor.check_interval_seconds}s
           </span>
         </div>
@@ -175,7 +171,7 @@ export function MonitorsPage() {
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <div className="relative min-w-48 flex-1">
-          <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="text-muted-foreground absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2" />
           <Input
             aria-label="Search monitors"
             placeholder="Search by name or URL…"
@@ -224,7 +220,7 @@ export function MonitorsPage() {
 
       {isError && (
         <EmptyState
-          icon={Activity}
+          icon={Heartbeat}
           title="Couldn't load monitors"
           description="The API didn't respond. Is the backend running?"
           action={{ label: "Retry", onClick: () => void refetch() }}
@@ -233,7 +229,7 @@ export function MonitorsPage() {
 
       {data && data.data.length === 0 && (
         <EmptyState
-          icon={Activity}
+          icon={Heartbeat}
           title={debouncedSearch || status !== "all" ? "No monitors match" : "No monitors yet"}
           description={
             debouncedSearch || status !== "all"
@@ -289,7 +285,7 @@ export function MonitorsPage() {
           </div>
 
           {data.pagination.total_pages > 1 && (
-            <div className="mt-4 flex items-center justify-between text-sm text-muted-foreground">
+            <div className="text-muted-foreground mt-4 flex items-center justify-between text-sm">
               <span>
                 Page {data.pagination.page} of {data.pagination.total_pages} ·{" "}
                 {data.pagination.total} monitor{data.pagination.total === 1 ? "" : "s"}

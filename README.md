@@ -54,9 +54,10 @@ The clip covers the full loop: overview → add a monitor → live first check �
 - **Check engine** — pooled `reqwest` client, header-arrival timing, error taxonomy (DNS / connection / timeout / TLS / status mismatch / redirects / blocked / cancelled / internal), exponential backoff with full jitter, `Retry-After` support
 - **SSRF / DNS-rebinding defense** — public-IP-only policy at create time, custom DNS resolver, re-validation on every redirect hop, private targets blocked by default
 - **Incidents** — transactional open/resolve on threshold transitions; partial unique index guarantees one open incident per monitor
-- **Reports** — uptime (null when 0 checks, never fabricated 100%), median/p95 over successful checks only, downtime from incident durations, hourly/daily series
+- **Reports** — uptime (null when 0 checks, never fabricated 100%), median/p95 over successful checks only, downtime from incident durations, hourly/daily series; latency stats batched in a single scan (response-times stays sub-0.5s at 100+ monitors)
 - **Settings API** — defaults for new monitors (env + DB override), restart-required flag for concurrency changes
-- **Frontend console** — collapsible sidebar, ⌘K command palette, live polling, charts, uptime strip, CSV export, light/dark theme
+- **Frontend console** — collapsible sidebar, ⌘K command palette, live polling, charts, uptime strip, CSV export, light/dark theme, client-side pagination for 100-row tables
+- **Design system** — [DESIGN.md](DESIGN.md) ("The Midnight Control Room"): status-only saturation, hairline-first elevation, tabular numerals, ambient aurora canvas, session-once boot sequence; tokens in `.impeccable/design.json`
 
 ---
 
@@ -303,6 +304,8 @@ Integration tests cover CRUD, SSRF denials, manual-check outcomes, incident open
 ## Project layout
 
 ```
+├── DESIGN.md             # design system spec ("The Midnight Control Room")
+├── .impeccable/          # design tokens sidecar (component/color metadata)
 ├── migrations/           # SQLx migrations
 ├── backend/
 │   ├── src/

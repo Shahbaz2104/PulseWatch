@@ -123,7 +123,14 @@ export const reportsApi = {
 };
 
 export const incidentsApi = {
-  list: (query: WindowQuery & { status?: string; monitorId?: string; page?: number; page_size?: number } = {}) =>
+  list: (
+    query: WindowQuery & {
+      status?: string;
+      monitorId?: string;
+      page?: number;
+      page_size?: number;
+    } = {},
+  ) =>
     api.get<Paginated<IncidentWithMonitor>>(
       `/incidents${qs({
         status: query.status,

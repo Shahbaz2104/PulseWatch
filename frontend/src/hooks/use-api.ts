@@ -1,17 +1,9 @@
 /** TanStack Query hooks. Polling cadence: overview/lists 30s, detail 15s —
  * paused automatically when the tab is hidden (Query default behaviour). */
 
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { checksApi, incidentsApi, monitorsApi, reportsApi, settingsApi } from "@/lib/endpoints";
-import type {
-  CreateMonitorRequest,
-  UpdateMonitorRequest,
-  WindowQuery,
-} from "@/types/api";
+import type { CreateMonitorRequest, UpdateMonitorRequest, WindowQuery } from "@/types/api";
 
 export const queryKeys = {
   monitors: (params: Record<string, unknown>) => ["monitors", params] as const,
@@ -46,10 +38,7 @@ export function useMonitor(id: string) {
   });
 }
 
-export function useChecks(
-  id: string,
-  query: Parameters<typeof checksApi.list>[1],
-) {
+export function useChecks(id: string, query: Parameters<typeof checksApi.list>[1]) {
   return useQuery({
     queryKey: queryKeys.checks(id, query as Record<string, unknown>),
     queryFn: () => checksApi.list(id, query),
@@ -97,9 +86,7 @@ export function useIncidentReport(window: WindowQuery = {}) {
   });
 }
 
-export function useIncidents(
-  query: Parameters<typeof incidentsApi.list>[0] = {},
-) {
+export function useIncidents(query: Parameters<typeof incidentsApi.list>[0] = {}) {
   return useQuery({
     queryKey: queryKeys.incidents(query as Record<string, unknown>),
     queryFn: () => incidentsApi.list(query),
