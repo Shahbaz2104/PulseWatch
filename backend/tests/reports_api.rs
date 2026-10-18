@@ -584,6 +584,54 @@ async fn incident_report_and_incident_endpoints() {
     assert_eq!(body["error"]["details"][0]["field"], "status");
 }
 
+/// Regression: the unfiltered incident list used to emit a dangling
+/// `WHERE` clause (SQLite "incomplete input" → 500) because the query
+/// builder pushed `WHERE` unconditionally. Listing with zero filters and
+/// with a date-only filter must both succeed.
+#[tokio::test]
+async fn incident_list_without_status_filter_returns_200() {
+    let app = TestApp::new(true).await;
+    let seed = seed_scenario(&app).await;
+
+    // No filters at all: both seeded incidents (open + resolved).
+    let (status, body) = app
+        .request_json(json_request("GET", "/api/v1/incidents", None))
+        .await;
+    assert_eq!(status, 200);
+    assert_eq!(body["pagination"]["total"], 2);
+    assert_eq!(body["data"].as_array().unwrap().len(), 2);
+
+    // Monitor filter only (no status).
+    let (status, body) = app
+        .request_json(json_request(
+            "GET",
+            &format!("/api/v1/incidents?monitor_id={}", seed.monitor_a),
+            None,
+        ))
+        .await;
+    assert_eq!(status, 200);
+    assert_eq!(body["pagination"]["total"], 2);
+
+    // Date-range filter only (no status).
+    let (status, body) = app
+        .request_json(json_request(
+            "GET",
+            &format!("/api/v1/incidents?{}", window_query(seed.from, seed.to)),
+            None,
+        ))
+        .await;
+    assert_eq!(status, 200);
+    assert_eq!(body["pagination"]["total"], 2);
+
+    // Empty database, no filters — still a valid query.
+    let empty_app = TestApp::new(false).await;
+    let (status, body) = empty_app
+        .request_json(json_request("GET", "/api/v1/incidents", None))
+        .await;
+    assert_eq!(status, 200);
+    assert_eq!(body["pagination"]["total"], 0);
+}
+
 #[tokio::test]
 async fn invalid_report_windows_are_rejected() {
     let app = TestApp::new(true).await;

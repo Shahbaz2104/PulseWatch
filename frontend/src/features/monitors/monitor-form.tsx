@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -66,13 +66,37 @@ export function MonitorFormDialog({ open, onOpenChange, editing }: MonitorFormDi
     defaultValues: monitorDefaults,
   });
 
-  // Seed the form: settings defaults for create, monitor values for edit.
+  // Seed once per dialog open. The previous effect listed the mutation
+  // objects (`create`/`update`) and `form` in its deps — those get new
+  // identities on every render, so the effect re-ran continuously and
+  // `form.reset()` wiped whatever the user had typed (and could lock the
+  // tab in a reset → re-render loop). Latest-ref pattern keeps the
+  // callbacks fresh without re-triggering the seed.
+  const formRef = useRef(form);
+  const createRef = useRef(create);
+  const updateRef = useRef(update);
   useEffect(() => {
-    if (!open) return;
-    create.reset();
-    update.reset();
+    formRef.current = form;
+    createRef.current = create;
+    updateRef.current = update;
+  });
+  const seededFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!open) {
+      seededFor.current = null;
+      return;
+    }
+    // For create, wait until settings have loaded so defaults come from the API.
+    if (!editing && !settings) return;
+    const seedKey = editing?.id ?? "create";
+    if (seededFor.current === seedKey) return;
+    seededFor.current = seedKey;
+
+    createRef.current.reset();
+    updateRef.current.reset();
     if (editing) {
-      form.reset({
+      formRef.current.reset({
         name: editing.name,
         url: editing.url,
         check_interval_seconds: editing.check_interval_seconds,
@@ -84,7 +108,7 @@ export function MonitorFormDialog({ open, onOpenChange, editing }: MonitorFormDi
         consecutive_successes_threshold: editing.consecutive_successes_threshold,
       });
     } else if (settings) {
-      form.reset({
+      formRef.current.reset({
         ...monitorDefaults,
         check_interval_seconds: settings.default_check_interval_seconds,
         timeout_ms: settings.default_timeout_ms,
@@ -92,10 +116,8 @@ export function MonitorFormDialog({ open, onOpenChange, editing }: MonitorFormDi
         expected_status_min: settings.default_expected_status_min,
         expected_status_max: settings.default_expected_status_max,
       });
-    } else {
-      form.reset(monitorDefaults);
     }
-  }, [open, editing, settings, form, create, update]);
+  }, [open, editing, settings]);
 
   const onSubmit = (values: MonitorFormValues) => {
     const trimmedName = (values.name ?? "").trim();

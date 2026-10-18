@@ -116,7 +116,14 @@ pub async fn list_with_monitor(
     page: i64,
     page_size: i64,
 ) -> Result<(Vec<crate::models::incident::IncidentWithMonitor>, i64), sqlx::Error> {
+    // Emit `WHERE` only when at least one filter is present; a dangling
+    // `WHERE ` with no clauses is a SQLite "incomplete input" syntax error.
     let build_where = |query: &mut sqlx::QueryBuilder<Sqlite>| {
+        let has_filters =
+            status.is_some() || monitor_id.is_some() || from.is_some() || to.is_some();
+        if !has_filters {
+            return;
+        }
         query.push(" WHERE ");
         let mut sep = "";
         if let Some(status) = status {

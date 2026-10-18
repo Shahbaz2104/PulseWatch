@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -87,18 +87,28 @@ export function SettingsPage() {
     defaultValues: DEFAULTS,
   });
 
+  // Seed from the server once per data load. `form` gets a new identity each
+  // render, so listing it as an effect dep would re-run `form.reset()` forever
+  // and wipe whatever the user was typing.
+  const formRef = useRef(form);
   useEffect(() => {
-    if (settingsQuery.data) {
-      form.reset({
-        default_check_interval_seconds: settingsQuery.data.default_check_interval_seconds,
-        default_timeout_ms: settingsQuery.data.default_timeout_ms,
-        default_retry_max_attempts: settingsQuery.data.default_retry_max_attempts,
-        default_expected_status_min: settingsQuery.data.default_expected_status_min,
-        default_expected_status_max: settingsQuery.data.default_expected_status_max,
-        max_concurrent_checks: settingsQuery.data.max_concurrent_checks,
-      });
-    }
-  }, [settingsQuery.data, form]);
+    formRef.current = form;
+  });
+  const seededFrom = useRef<SettingsFormValues | null>(null);
+
+  useEffect(() => {
+    const data = settingsQuery.data;
+    if (!data || seededFrom.current === data) return;
+    seededFrom.current = data;
+    formRef.current.reset({
+      default_check_interval_seconds: data.default_check_interval_seconds,
+      default_timeout_ms: data.default_timeout_ms,
+      default_retry_max_attempts: data.default_retry_max_attempts,
+      default_expected_status_min: data.default_expected_status_min,
+      default_expected_status_max: data.default_expected_status_max,
+      max_concurrent_checks: data.max_concurrent_checks,
+    });
+  }, [settingsQuery.data]);
 
   const onSubmit = (values: SettingsFormValues) => {
     update.mutate(values, {
