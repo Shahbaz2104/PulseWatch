@@ -284,17 +284,22 @@ fn join_row_to_with_monitor(
     }
 }
 
-/// Latest incidents across all monitors (overview feed).
+/// Latest incidents across all monitors inside `[start, end)` (overview feed).
 pub async fn recent(
     pool: &sqlx::SqlitePool,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
     limit: i64,
 ) -> Result<Vec<crate::models::incident::IncidentWithMonitor>, sqlx::Error> {
     let rows = sqlx::query_as::<_, IncidentJoinRow>(
         "SELECT i.id, i.monitor_id, i.started_at, i.resolved_at, i.status, \
          i.failure_reason, i.created_at, i.updated_at, m.name, m.url \
          FROM incidents i JOIN monitors m ON m.id = i.monitor_id \
+         WHERE i.started_at >= ? AND i.started_at < ? \
          ORDER BY i.started_at DESC, i.id DESC LIMIT ?",
     )
+    .bind(start)
+    .bind(end)
     .bind(limit)
     .fetch_all(pool)
     .await?;

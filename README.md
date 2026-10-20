@@ -27,7 +27,7 @@ The clip covers the full loop: overview → add a monitor → live first check �
 
 **Self-hosted uptime monitoring** — a UptimeRobot-style alternative you run yourself: watch APIs, homelab services, side projects, or client sites on your own schedule, with no per-monitor limits and no data leaving your machine. Alerts-grade raw data is exposed over REST and CSV.
 
-**Portfolio / proof-of-work for engineers** — the codebase demonstrates production concerns end-to-end: a Tokio scheduler with atomic claim semantics and graceful shutdown, a single-transaction state machine for check → counters → incident, SSRF/DNS-rebinding hardening, honest metrics that never fabricate 100%, OpenAPI docs, and a green CI gate over 115 tests.
+**Portfolio / proof-of-work for engineers** — the codebase demonstrates production concerns end-to-end: a Tokio scheduler with atomic claim semantics and graceful shutdown, a single-transaction state machine for check → counters → incident, SSRF/DNS-rebinding hardening, honest metrics that never fabricate 100%, OpenAPI docs, and a green CI gate over 145 tests.
 
 **Reference implementation for common patterns** — borrow the parts you need: axum + sqlx service/repository layering, exact nearest-rank percentiles, exponential backoff with full jitter and `Retry-After`, windowed report queries, or a React 19 + TanStack Query console with command palette and light/dark theming.
 
@@ -56,7 +56,7 @@ The clip covers the full loop: overview → add a monitor → live first check �
 - **Incidents** — transactional open/resolve on threshold transitions; partial unique index guarantees one open incident per monitor
 - **Reports** — uptime (null when 0 checks, never fabricated 100%), median/p95 over successful checks only, downtime from incident durations, hourly/daily series; latency stats batched in a single scan (response-times stays sub-0.5s at 100+ monitors)
 - **Settings API** — defaults for new monitors (env + DB override), restart-required flag for concurrency changes
-- **Frontend console** — collapsible sidebar, ⌘K command palette, live polling, charts, uptime strip, CSV export, light/dark theme, client-side pagination for 100-row tables
+- **Frontend console** — collapsible sidebar, ⌘K command palette, live polling, charts, uptime strip, search/filter/sort, windowed dashboard feeds, incident history + recent errors per monitor, incident monitor filter, CSV export, light/dark theme (including a Settings preference), client-side pagination for 100-row tables
 - **Design system** — [DESIGN.md](DESIGN.md) ("The Midnight Control Room"): status-only saturation, hairline-first elevation, tabular numerals, ambient aurora canvas, session-once boot sequence; tokens in `.impeccable/design.json`
 
 ---
@@ -173,11 +173,13 @@ See `.env.example`. Important variables:
 | `DEFAULT_CHECK_INTERVAL_SECONDS` | `60` | New-monitor default (10–86400) |
 | `DEFAULT_TIMEOUT_MS` | `5000` | Per-request timeout (100–60000) |
 | `DEFAULT_RETRY_MAX_ATTEMPTS` | `2` | First try + retries (1–5) |
+| `DEFAULT_RETRY_BACKOFF_MS` | `500` | Initial retry delay (0–60000) |
+| `DEFAULT_RETRY_BACKOFF_MAX_MS` | `10000` | Backoff ceiling (0–300000, ≥ initial) |
 | `MAX_CONCURRENT_CHECKS` | `16` | Scheduler semaphore (1–256) |
 | `ALLOWED_ORIGINS` | Vite dev origins | CORS |
 | `PULSEWATCH_ALLOW_PRIVATE_TARGETS` | unset | **Tests/dev only** — allow loopback targets for wiremock |
 
-Runtime overrides for new-monitor defaults live in the **Settings** page (persisted in the `settings` table). Changing max concurrency requires a process restart.
+Runtime overrides for check defaults and retry backoff live in the **Settings** page (persisted in the `settings` table); backoff changes apply to the next check. Changing max concurrency requires a process restart.
 
 ---
 
@@ -284,9 +286,9 @@ npm test
 npm run lint
 ```
 
-**Current counts:** **115 tests** — backend **79 tests** (47 unit + 32 integration) · frontend **36 tests** · `cargo fmt` + `clippy -D warnings` clean · `oxlint` clean · production build green.
+**Current counts:** **145 tests** — backend **80 tests** (47 unit + 33 integration) · frontend **65 tests** · `cargo fmt` + `clippy -D warnings` clean · `oxlint` clean · production build green.
 
-Integration tests cover CRUD, SSRF denials, manual-check outcomes, incident open/resolve, scheduler recovery/overlap/shutdown, hand-computed report metrics, and settings validation.
+Integration tests cover CRUD, SSRF denials, manual-check outcomes, incident open/resolve, scheduler recovery/overlap/shutdown, hand-computed report metrics, windowed overview feeds, and settings validation. Frontend tests cover API error mapping, monitor create/edit validation, pause/resume/delete actions, dashboard metrics, window selection, loading/error/empty states, and theme preferences.
 
 ---
 

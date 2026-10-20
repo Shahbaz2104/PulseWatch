@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Heartbeat,
@@ -20,14 +21,19 @@ import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/status-pill";
 import { UptimeStrip } from "@/components/uptime-strip";
 import { SeriesChart } from "@/components/series-chart";
+import { WindowPicker } from "@/components/window-picker";
 import { useOverview } from "@/hooks/use-api";
-import { formatMs, formatRelative } from "@/lib/format";
+import { formatMs, formatRelative, formatSeconds } from "@/lib/format";
+import type { WindowQuery } from "@/types/api";
 
 export function OverviewPage() {
   const navigate = useNavigate();
-  const { data, isLoading, isError, refetch, isFetching } = useOverview();
+  const [windowQuery, setWindowQuery] = useState<WindowQuery>({ window: "24h" });
+  const { data, isLoading, isError, refetch, isFetching } = useOverview(windowQuery);
 
   const hasMonitors = (data?.monitors.total ?? 0) > 0;
+  const windowLabel =
+    windowQuery.window === "custom" ? "custom window" : `last ${windowQuery.window}`;
 
   return (
     <>
@@ -40,6 +46,12 @@ export function OverviewPage() {
           </Button>
         }
       />
+
+      {hasMonitors && (
+        <div className="mb-4 flex justify-end">
+          <WindowPicker value={windowQuery} onChange={setWindowQuery} />
+        </div>
+      )}
 
       {isLoading && (
         <div className="space-y-4">
@@ -108,14 +120,14 @@ export function OverviewPage() {
             />
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-3">
             <MetricCard
               label="Uptime"
               value={data.uptime_percent}
               format="percent"
               icon={TrendingUp}
               delay={0.16}
-              hint={data.uptime_percent == null ? "No checks in this window" : "Last 24 hours"}
+              hint={data.uptime_percent == null ? "No checks in this window" : windowLabel}
             />
             <MetricCard
               label="Avg response time"
@@ -129,19 +141,22 @@ export function OverviewPage() {
                   : "Successful checks only"
               }
             />
+            <MetricCard
+              label="Outages"
+              value={data.incidents.outage_count}
+              format="integer"
+              icon={AlertTriangle}
+              tone={data.incidents.outage_count > 0 ? "warning" : "default"}
+              delay={0.24}
+              hint={`${formatSeconds(data.incidents.downtime_seconds)} downtime · ${windowLabel}`}
+            />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
             <Card>
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Uptime — last 24h</CardTitle>
-                <span className="text-muted-foreground font-mono text-xs">
-                  {data.incidents.outage_count} outage{data.incidents.outage_count === 1 ? "" : "s"}
-                  {" · "}
-                  {data.incidents.downtime_seconds > 0
-                    ? `${Math.round(data.incidents.downtime_seconds / 60)}m downtime`
-                    : "no downtime"}
-                </span>
+                <span className="text-muted-foreground font-mono text-xs">hourly buckets</span>
               </CardHeader>
               <CardContent>
                 {data.uptime_series.length === 0 ? (
@@ -168,19 +183,22 @@ export function OverviewPage() {
             <Card>
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Recent incidents</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1 text-xs"
-                  onClick={() => navigate("/incidents")}
-                >
-                  View all <ArrowRight className="size-3" />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground font-mono text-xs">{windowLabel}</span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="gap-1 text-xs"
+                    onClick={() => navigate("/incidents")}
+                  >
+                    View all <ArrowRight className="size-3" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.recent_incidents.length === 0 ? (
                   <p className="text-muted-foreground py-6 text-center text-sm">
-                    No incidents recorded — everything is running.
+                    No incidents in this window — everything is running.
                   </p>
                 ) : (
                   data.recent_incidents.slice(0, 5).map((incident) => (
@@ -209,12 +227,15 @@ export function OverviewPage() {
             <Card>
               <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Recent checks</CardTitle>
-                <Timer className="text-muted-foreground size-4" />
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground font-mono text-xs">{windowLabel}</span>
+                  <Timer className="text-muted-foreground size-4" />
+                </div>
               </CardHeader>
               <CardContent className="space-y-3">
                 {data.recent_checks.length === 0 ? (
                   <p className="text-muted-foreground py-6 text-center text-sm">
-                    No checks have run yet.
+                    No checks in this window.
                   </p>
                 ) : (
                   data.recent_checks.slice(0, 6).map((check, index) => (

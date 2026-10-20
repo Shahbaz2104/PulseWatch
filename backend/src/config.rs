@@ -13,6 +13,10 @@ pub const MIN_TIMEOUT_MS: i64 = 100;
 pub const MAX_TIMEOUT_MS: i64 = 60_000;
 pub const MIN_RETRY_ATTEMPTS: i64 = 1;
 pub const MAX_RETRY_ATTEMPTS: i64 = 5;
+pub const MIN_RETRY_BACKOFF_MS: i64 = 0;
+pub const MAX_RETRY_BACKOFF_MS: i64 = 60_000;
+pub const MIN_RETRY_BACKOFF_MAX_MS: i64 = 0;
+pub const MAX_RETRY_BACKOFF_MAX_MS: i64 = 300_000;
 pub const MIN_CONCURRENCY: usize = 1;
 pub const MAX_CONCURRENCY: usize = 256;
 
@@ -85,8 +89,18 @@ impl Config {
                 MIN_RETRY_ATTEMPTS,
                 MAX_RETRY_ATTEMPTS,
             )?,
-            default_retry_backoff_ms: parse_or("DEFAULT_RETRY_BACKOFF_MS", 500)?,
-            default_retry_backoff_max_ms: parse_or("DEFAULT_RETRY_BACKOFF_MAX_MS", 10_000)?,
+            default_retry_backoff_ms: in_range(
+                "DEFAULT_RETRY_BACKOFF_MS",
+                parse_or("DEFAULT_RETRY_BACKOFF_MS", 500)?,
+                MIN_RETRY_BACKOFF_MS,
+                MAX_RETRY_BACKOFF_MS,
+            )? as u64,
+            default_retry_backoff_max_ms: in_range(
+                "DEFAULT_RETRY_BACKOFF_MAX_MS",
+                parse_or("DEFAULT_RETRY_BACKOFF_MAX_MS", 10_000)?,
+                MIN_RETRY_BACKOFF_MAX_MS,
+                MAX_RETRY_BACKOFF_MAX_MS,
+            )? as u64,
             max_concurrent_checks: parse_or("MAX_CONCURRENT_CHECKS", 16_usize)
                 .map_err(|_| ConfigError::Invalid("MAX_CONCURRENT_CHECKS"))?,
             allow_private_targets: parse_or("PULSEWATCH_ALLOW_PRIVATE_TARGETS", false)?,
@@ -110,6 +124,9 @@ impl Config {
         }
         if !config.database_url.starts_with("sqlite") {
             return Err(ConfigError::Invalid("DATABASE_URL"));
+        }
+        if config.default_retry_backoff_max_ms < config.default_retry_backoff_ms {
+            return Err(ConfigError::Invalid("DEFAULT_RETRY_BACKOFF_MAX_MS"));
         }
         Ok(config)
     }

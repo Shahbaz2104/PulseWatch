@@ -21,6 +21,7 @@ use crate::models::monitor::{Monitor, MonitorStatus};
 use crate::repositories::{check_repository, monitor_repository};
 use crate::services::incident_service;
 use crate::services::retry::RetryPolicy;
+use crate::services::settings_service::AppSettings;
 use crate::state::AppState;
 use crate::validation::{
     chain_contains, validate_monitor_url, BlockedTarget, SsrfPolicy, TooManyRedirects,
@@ -120,7 +121,10 @@ async fn execute_and_persist(
         .await
         .map_err(|_| CheckError::Internal("concurrency limiter closed".to_string()))?;
 
-    let retry = RetryPolicy::for_monitor(&monitor, &state.config);
+    let settings = AppSettings::load(&state.pool, &state.config)
+        .await
+        .map_err(CheckError::Database)?;
+    let retry = RetryPolicy::for_monitor(&monitor, &settings);
     let timeout =
         Duration::from_millis(monitor.timeout_ms.clamp(MIN_TIMEOUT_MS, MAX_TIMEOUT_MS) as u64);
     let checked_at = Utc::now();

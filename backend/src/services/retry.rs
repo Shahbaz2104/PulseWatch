@@ -8,9 +8,9 @@
 
 use std::time::Duration;
 
-use crate::config::Config;
 use crate::models::check_result::CheckErrorType;
 use crate::models::monitor::Monitor;
+use crate::services::settings_service::AppSettings;
 
 /// Responses that indicate a temporary condition even though an HTTP response
 /// was received. Everything else failing the status policy is treated as
@@ -44,17 +44,17 @@ impl RetryPolicy {
     }
 
     /// Retry settings for one monitor: attempts come from the monitor row,
-    /// backoff timing from the process configuration.
-    pub fn for_monitor(monitor: &Monitor, config: &Config) -> Self {
+    /// backoff timing from the effective application settings.
+    pub fn for_monitor(monitor: &Monitor, settings: &AppSettings) -> Self {
         let attempts = if monitor.retry_max_attempts > 0 {
             monitor.retry_max_attempts
         } else {
-            config.default_retry_max_attempts
+            settings.default_retry_max_attempts
         };
         Self::new(
             attempts,
-            config.default_retry_backoff_ms,
-            config.default_retry_backoff_max_ms,
+            settings.default_retry_backoff_ms.max(0) as u64,
+            settings.default_retry_backoff_max_ms.max(0) as u64,
         )
     }
 

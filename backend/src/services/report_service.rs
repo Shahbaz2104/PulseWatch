@@ -117,8 +117,9 @@ pub async fn overview(state: &AppState, window: ReportWindow) -> Result<Overview
     .await?;
 
     let incidents = incident_stats(state, window).await?;
-    let recent_incidents = incident_repository::recent(&state.pool, 5).await?;
-    let recent_checks = check_repository::recent_global(&state.pool, 10)
+    let recent_incidents =
+        incident_repository::recent(&state.pool, window.start, window.end, 5).await?;
+    let recent_checks = check_repository::recent_global(&state.pool, window.start, window.end, 10)
         .await?
         .into_iter()
         .map(

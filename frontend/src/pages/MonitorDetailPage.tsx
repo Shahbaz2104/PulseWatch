@@ -7,12 +7,14 @@ import {
   CheckCircle as CheckCircle2,
   Clock,
   Gauge,
+  Globe,
   CircleNotch as Loader2,
   Pause,
   Pencil,
   Play,
   Timer,
   TrendUp as TrendingUp,
+  Warning as AlertTriangle,
 } from "@phosphor-icons/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -38,6 +40,7 @@ import {
   useCheckNow,
   useCheckSummary,
   useChecks,
+  useIncidents,
   useMonitor,
   usePauseMonitor,
   useResponseTimes,
@@ -49,6 +52,7 @@ import {
   formatMs,
   formatPercent,
   formatRelative,
+  formatSeconds,
 } from "@/lib/format";
 import type { WindowQuery } from "@/types/api";
 
@@ -107,6 +111,13 @@ export function MonitorDetailPage() {
     page: checkPage,
     page_size: 25,
   });
+  const recentErrors = useChecks(monitorId, {
+    window: "30d",
+    result: "failure",
+    page: 1,
+    page_size: 5,
+  });
+  const incidentHistory = useIncidents({ monitorId, window: "30d", page_size: 5 });
 
   const checkNow = useCheckNow();
   const pause = usePauseMonitor();
@@ -260,7 +271,7 @@ export function MonitorDetailPage() {
         ))}
       </div>
 
-      <div className="mb-4 grid gap-4 sm:grid-cols-3">
+      <div className="mb-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           label="Latest response"
           value={summaryActive.data?.latest_response_time_ms}
@@ -269,6 +280,21 @@ export function MonitorDetailPage() {
           loading={summaryActive.isLoading}
           delay={0.12}
           hint={monitor.last_checked_at ? formatRelative(monitor.last_checked_at) : "Never checked"}
+        />
+        <MetricCard
+          label="Latest HTTP status"
+          value={monitor.latest_http_status}
+          format="integer"
+          icon={Globe}
+          tone={monitor.latest_success === false ? "down" : "default"}
+          delay={0.14}
+          hint={
+            monitor.latest_success == null
+              ? "No completed checks yet"
+              : monitor.latest_success
+                ? "Within expected range"
+                : "Outside expected range"
+          }
         />
         <MetricCard
           label="Median"
@@ -432,6 +458,89 @@ export function MonitorDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">Incident history — 30d</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {incidentHistory.isLoading ? (
+              <Skeleton className="h-32" />
+            ) : incidentHistory.data?.data.length ? (
+              <div className="divide-y">
+                {incidentHistory.data.data.map((incident) => (
+                  <div
+                    key={incident.id}
+                    className="flex items-start justify-between gap-3 py-2 first:pt-0 last:pb-0"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <StatusPill
+                          status={incident.status === "open" ? "down" : "up"}
+                          label={incident.status === "open" ? "Open" : "Resolved"}
+                          className="h-5"
+                        />
+                        <span className="text-muted-foreground text-xs">
+                          {formatClock(incident.started_at)} →{" "}
+                          {incident.resolved_at ? formatClock(incident.resolved_at) : "ongoing"}
+                        </span>
+                      </div>
+                      <p className="text-muted-foreground mt-1 truncate font-mono text-xs">
+                        {incident.failure_reason ?? "No failure detail recorded"}
+                      </p>
+                    </div>
+                    <span className="font-mono text-xs whitespace-nowrap">
+                      {formatSeconds(incident.duration_seconds)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground py-6 text-center text-sm">
+                No incidents in the last 30 days.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Recent errors — 30d</CardTitle>
+            <AlertTriangle className="text-muted-foreground size-4" />
+          </CardHeader>
+          <CardContent>
+            {recentErrors.isLoading ? (
+              <Skeleton className="h-32" />
+            ) : recentErrors.data?.data.length ? (
+              <div className="divide-y">
+                {recentErrors.data.data.map((check) => (
+                  <div key={check.id} className="py-2 first:pt-0 last:pb-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge variant="destructive" className="font-mono text-[10px]">
+                        {check.error_type ?? (check.http_status_code ? "status" : "error")}
+                      </Badge>
+                      <span className="text-muted-foreground text-xs">
+                        {formatRelative(check.checked_at)}
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground mt-1 truncate font-mono text-xs">
+                      {check.error_message ??
+                        (check.http_status_code
+                          ? `HTTP ${check.http_status_code} outside expected range`
+                          : "No error detail recorded")}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground py-6 text-center text-sm">
+                No failed checks in the last 30 days.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       <ConfigPanel monitor={monitor} />
 

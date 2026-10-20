@@ -26,6 +26,7 @@ export interface MonitorListQuery extends WindowQuery {
   search?: string;
   status?: string;
   sort?: string;
+  order?: "asc" | "desc";
   page?: number;
   page_size?: number;
 }
@@ -48,6 +49,8 @@ export const monitorsApi = {
         window: query.window,
         from: query.from,
         to: query.to,
+        sort: query.sort,
+        order: query.order,
         page: query.page,
         page_size: query.page_size,
       })}`,

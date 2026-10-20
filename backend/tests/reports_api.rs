@@ -509,6 +509,73 @@ async fn overview_reports_census_uptime_and_incidents() {
 }
 
 #[tokio::test]
+async fn overview_recent_feeds_respect_the_selected_window() {
+    let app = TestApp::new(true).await;
+    let monitor_id = create_monitor(&app, "windowed-feed").await;
+    let now = Utc::now();
+    let inside = now - Duration::minutes(30);
+    let outside = now - Duration::hours(2);
+
+    seed_check(&app, monitor_id, inside, true, Some(200), Some(25)).await;
+    seed_check(&app, monitor_id, outside, true, Some(200), Some(50)).await;
+
+    // One open incident inside the window and one resolved incident outside.
+    sqlx::query(
+        "INSERT INTO incidents (id, monitor_id, started_at, resolved_at, status, \
+         failure_reason, created_at, updated_at) VALUES (?, ?, ?, NULL, 'open', 'outage', ?, ?)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(monitor_id)
+    .bind(now - Duration::minutes(20))
+    .bind(now - Duration::minutes(20))
+    .bind(now - Duration::minutes(20))
+    .execute(&app.state.pool)
+    .await
+    .expect("seed open incident");
+
+    let old_start = now - Duration::hours(3);
+    sqlx::query(
+        "INSERT INTO incidents (id, monitor_id, started_at, resolved_at, status, \
+         failure_reason, created_at, updated_at) VALUES (?, ?, ?, ?, 'resolved', 'outage', ?, ?)",
+    )
+    .bind(Uuid::new_v4())
+    .bind(monitor_id)
+    .bind(old_start)
+    .bind(old_start + Duration::minutes(5))
+    .bind(old_start)
+    .bind(old_start)
+    .execute(&app.state.pool)
+    .await
+    .expect("seed old incident");
+
+    let (status, body) = app
+        .request_json(json_request(
+            "GET",
+            &format!(
+                "/api/v1/reports/overview?{}",
+                window_query(now - Duration::hours(1), now)
+            ),
+            None,
+        ))
+        .await;
+    assert_eq!(status, 200);
+
+    let checks = body["recent_checks"].as_array().unwrap();
+    assert_eq!(checks.len(), 1, "old checks must be excluded: {checks:?}");
+    let checked_at = DateTime::parse_from_rfc3339(checks[0]["checked_at"].as_str().unwrap())
+        .expect("checked_at is RFC3339");
+    assert_eq!(checked_at.timestamp(), inside.timestamp());
+
+    let incidents = body["recent_incidents"].as_array().unwrap();
+    assert_eq!(
+        incidents.len(),
+        1,
+        "old incidents must be excluded: {incidents:?}"
+    );
+    assert_eq!(incidents[0]["status"], "open");
+}
+
+#[tokio::test]
 async fn incident_report_and_incident_endpoints() {
     let app = TestApp::new(true).await;
     let seed = seed_scenario(&app).await;

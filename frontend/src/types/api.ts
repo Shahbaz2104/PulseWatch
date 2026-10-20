@@ -197,6 +197,8 @@ export interface AppSettings {
   default_check_interval_seconds: number;
   default_timeout_ms: number;
   default_retry_max_attempts: number;
+  default_retry_backoff_ms: number;
+  default_retry_backoff_max_ms: number;
   default_expected_status_min: number;
   default_expected_status_max: number;
   max_concurrent_checks: number;
@@ -206,6 +208,8 @@ export interface SettingsPatch {
   default_check_interval_seconds?: number;
   default_timeout_ms?: number;
   default_retry_max_attempts?: number;
+  default_retry_backoff_ms?: number;
+  default_retry_backoff_max_ms?: number;
   default_expected_status_min?: number;
   default_expected_status_max?: number;
   max_concurrent_checks?: number;

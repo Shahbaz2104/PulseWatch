@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Heartbeat, Plus, MagnifyingGlass as Search } from "@phosphor-icons/react";
+import {
+  Heartbeat,
+  Plus,
+  MagnifyingGlass as Search,
+  SortAscending,
+  SortDescending,
+} from "@phosphor-icons/react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -37,6 +43,17 @@ const STATUS_OPTIONS = [
   { value: "unknown", label: "Unknown" },
   { value: "paused", label: "Paused" },
 ] as const;
+
+const SORT_OPTIONS = [
+  { value: "created", label: "Newest" },
+  { value: "name", label: "Name" },
+  { value: "uptime", label: "Uptime" },
+  { value: "response_time", label: "Response time" },
+  { value: "last_checked", label: "Last checked" },
+] as const;
+
+type SortField = (typeof SORT_OPTIONS)[number]["value"];
+type SortOrder = "asc" | "desc";
 
 function MonitorRow({ monitor, onEdit }: { monitor: MonitorSummary; onEdit: () => void }) {
   return (
@@ -112,6 +129,8 @@ export function MonitorsPage() {
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState(params.get("search") ?? "");
   const [status, setStatus] = useState(params.get("status") ?? "all");
+  const [sort, setSort] = useState<SortField>("created");
+  const [order, setOrder] = useState<SortOrder>("desc");
   const [windowQuery, setWindowQuery] = useState<WindowQuery>({ window: "24h" });
   const [page, setPage] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(params.get("new") === "1");
@@ -137,13 +156,15 @@ export function MonitorsPage() {
     () => ({
       search: debouncedSearch || undefined,
       status: status === "all" ? undefined : status,
+      sort,
+      order,
       window: windowQuery.window,
       from: windowQuery.from,
       to: windowQuery.to,
       page,
       page_size: 20,
     }),
-    [debouncedSearch, status, windowQuery, page],
+    [debouncedSearch, status, sort, order, windowQuery, page],
   );
 
   const { data, isLoading, isError, refetch } = useMonitors(query);
@@ -201,6 +222,37 @@ export function MonitorsPage() {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={sort}
+          onValueChange={(value) => {
+            setSort(value as SortField);
+            setOrder(value === "name" ? "asc" : "desc");
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-40" aria-label="Sort by">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SORT_OPTIONS.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Button
+          variant="outline"
+          size="icon"
+          aria-label={`Sort ${order === "asc" ? "descending" : "ascending"}`}
+          title={order === "asc" ? "Ascending" : "Descending"}
+          onClick={() => {
+            setOrder((value) => (value === "asc" ? "desc" : "asc"));
+            setPage(1);
+          }}
+        >
+          {order === "asc" ? <SortAscending /> : <SortDescending />}
+        </Button>
         <WindowPicker
           value={windowQuery}
           onChange={(next) => {

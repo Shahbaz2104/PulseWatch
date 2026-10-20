@@ -15,6 +15,8 @@ async fn get_returns_env_derived_defaults() {
     assert_eq!(body["default_check_interval_seconds"], 60);
     assert_eq!(body["default_timeout_ms"], 5000);
     assert_eq!(body["default_retry_max_attempts"], 2);
+    assert_eq!(body["default_retry_backoff_ms"], 20);
+    assert_eq!(body["default_retry_backoff_max_ms"], 50);
     assert_eq!(body["default_expected_status_min"], 200);
     assert_eq!(body["default_expected_status_max"], 399);
     // TestApp builds its config with a semaphore of 8.
@@ -32,12 +34,16 @@ async fn update_round_trips_and_new_monitors_use_overrides() {
             Some(json!({
                 "default_check_interval_seconds": 120,
                 "default_timeout_ms": 2500,
+                "default_retry_backoff_ms": 100,
+                "default_retry_backoff_max_ms": 2000,
             })),
         ))
         .await;
     assert_eq!(status, 200, "{body}");
     assert_eq!(body["settings"]["default_check_interval_seconds"], 120);
     assert_eq!(body["settings"]["default_timeout_ms"], 2500);
+    assert_eq!(body["settings"]["default_retry_backoff_ms"], 100);
+    assert_eq!(body["settings"]["default_retry_backoff_max_ms"], 2000);
     // Untouched keys keep their previous values.
     assert_eq!(body["settings"]["default_retry_max_attempts"], 2);
     assert!(body["restart_required"].as_array().unwrap().is_empty());
@@ -48,6 +54,7 @@ async fn update_round_trips_and_new_monitors_use_overrides() {
         .await;
     assert_eq!(status, 200);
     assert_eq!(body["default_check_interval_seconds"], 120);
+    assert_eq!(body["default_retry_backoff_ms"], 100);
 
     // A monitor created without explicit config picks up the override.
     let (status, body) = app
@@ -116,6 +123,23 @@ async fn invalid_settings_are_rejected_with_field_errors() {
     assert_eq!(
         body["error"]["details"][0]["field"],
         "default_expected_status_max"
+    );
+
+    // Backoff ceiling below the initial delay.
+    let (status, body) = app
+        .request_json(json_request(
+            "PUT",
+            "/api/v1/settings",
+            Some(json!({
+                "default_retry_backoff_ms": 5000,
+                "default_retry_backoff_max_ms": 1000,
+            })),
+        ))
+        .await;
+    assert_eq!(status, 422);
+    assert_eq!(
+        body["error"]["details"][0]["field"],
+        "default_retry_backoff_max_ms"
     );
 
     // Nothing was persisted by the failed updates.

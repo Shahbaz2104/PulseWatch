@@ -12,13 +12,13 @@
 **Stage 3 — Monitoring engine: DONE** (51 tests passing: 39 unit + 12 integration; fmt + clippy `-D warnings` clean)
 **Stage 4 — Scheduler + incidents: DONE** (55 tests passing: 39 unit + 16 integration; scheduler loop wired into `main.rs`)
 **Stage 5 — Reports API: DONE** (72 tests passing: 45 unit + 27 integration; fmt + clippy `-D warnings` clean)
-**Stage 6 — Settings API (M0a): DONE** (78 backend tests: 47 unit + 31 integration)
-**Stage 6 — Frontend (M0b–M5): DONE** (build green, oxlint clean, 36 Vitest tests; live browser E2E + screenshots dark/light)
-**Stage 7 — Verification: DONE** (backend 78 + fmt/clippy clean; frontend lint/tests/build clean)
+**Stage 6 — Settings API (M0a): DONE** (80 backend tests: 47 unit + 33 integration)
+**Stage 6 — Frontend (M0b–M5): DONE** (build green, oxlint clean, 65 Vitest tests; live browser E2E + screenshots dark/light)
+**Stage 7 — Verification: DONE** (backend 80 + fmt/clippy clean; frontend lint/65 tests/build clean)
 **Stage 8 — README + delivery: DONE**
-**Status: DELIVERY COMPLETE**
+**Status: DELIVERY COMPLETE** (+ post-delivery completeness pass: sorting, incident history, recent errors, overview window, theme preference, page-flow tests, retry backoff settings, incident monitor filter, windowed overview feeds)
 
-Last verified: backend `cargo test` → **78 passed**; frontend `npm test` → **36 passed**; `npm run build` green. E2E screenshots in `/tmp/opencode/pulsewatch-shots/`.
+Last verified: backend `cargo test` → **80 passed**; frontend `npm test` → **65 passed**; `npm run build` green. E2E screenshots in `/tmp/opencode/pulsewatch-shots/`.
 
 ---
 
@@ -223,13 +223,13 @@ All items landed:
 2. Routes: `routes/checks.rs` (history/latest/summary), `routes/reports.rs` (overview/uptime/response-times/incidents), `routes/incidents.rs` (list/detail); registered in `routes/mod.rs` + `openapi.rs`.
 3. `tests/reports_api.rs`: 11 integration tests with hand-computed metric values (hour-aligned seeded checks, 999-ms failures excluded from latency, old out-of-window check, null-not-100% on empty, 404s, 422 window/filter validation, incident durations).
 
-### Stage 6 — Frontend: DONE (M0a–M4; M5 screenshot polish pending)
+### Stage 6 — Frontend: DONE (M0a–M5)
 All pages and the settings slice landed:
 1. **M0a — Settings API**: `services/settings_service.rs` (`AppSettings::load` env→DB, `update` with field validation + `restart_required`), `repositories/settings_repository.rs`, `routes/settings.rs` (GET/PUT), wired into OpenAPI; create/update monitor handlers now load `AppSettings::load` first so new monitors inherit defaults; `tests/settings_api.rs` (4 tests).
 2. **M0b — Scaffold**: Vite React-TS, Tailwind v4 (`@theme inline` navy/emerald tokens, light+dark), Geist Sans/Mono self-hosted, shadcn (button, card, dialog, dropdown-menu, form, input, label, popover, select, separator, sheet, skeleton, switch, table, tabs, tooltip, sonner, alert, textarea, alert-dialog), Vite proxy `/api` → `:3000`.
 3. **M1 — Shell**: collapsible sidebar (motion `layoutId` active indicator), mobile sheet, sticky blurred header with ⌘K search, ThemeToggle (light/dark/system), CommandPalette (monitor search + nav), PageTransition (200 ms rise), StatusPill (live ring-pulse), MetricCard (NumberFlow animated KPIs + stagger), EmptyState, UptimeStrip (staggered bars), SeriesChart (Recharts, CSS-var colors), typed `lib/api.ts` + `hooks/use-api.ts` (TanStack Query, 30 s/15 s polling, full CRUD mutations).
 4. **M2–M4 — Pages**: Overview (KPI grid, uptime strip, response chart, recent incidents/checks, teaching empty states), Monitors (search/filter/window/pagination, desktop table + mobile cards, create/edit dialog via `?new=1`, row actions check/pause/resume/delete), MonitorDetail (24h/7d/30d uptime KPIs, median/p95, response chart, uptime strip, paginated check history with result filter, config panel, edit dialog), Incidents (status + window filters, table + mobile cards), Reports (window picker, uptime table, latency percentiles with null-on-low-samples, response series, client-side CSV export), Settings (validated form, restart banner, server field-error mapping), NotFound.
-5. **M5 partial — Tests**: `npm test` → **36/36 passing** (format helpers, StatusPill, EmptyState, MetricCard, WindowPicker, monitor zod schema).
+5. **M5 — Tests**: `npm test` → **65/65 passing** (format helpers, StatusPill, EmptyState, MetricCard, WindowPicker, monitor zod schema, API error mapping/query params, Monitors/Overview/MonitorDetail/Settings pages, monitor create/edit form, pause/resume/delete actions).
 
 ### Stage 7 — Verification
 - `cargo fmt --check && cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo test --workspace`
@@ -247,8 +247,8 @@ All pages and the settings slice landed:
 
 1. **Delivery is complete** through Stage 8. No open blockers.
 2. Re-run gates if touching code:
-   - Backend: `cd backend && cargo fmt --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test` (expect 78).
-   - Frontend: `cd frontend && npm run lint && npm test && npm run build` (expect 36 tests).
+   - Backend: `cd backend && cargo fmt --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test` (expect 80).
+   - Frontend: `cd frontend && npm run lint && npm test && npm run build` (expect 65 tests).
 3. Dev: `npm install && npm --prefix frontend install && cp .env.example .env && npm run dev` → UI :5173, API :3000, Swagger `/api/v1/docs`.
 4. Gotchas: incident JSON is flattened; settings fields use `default_*` prefix; workspace path has a **trailing space**; `PULSEWATCH_ALLOW_PRIVATE_TARGETS=true` only for wiremock tests.
 5. Screenshots from E2E live under `/tmp/opencode/pulsewatch-shots/` (not committed).

@@ -321,16 +321,21 @@ pub async fn activity_series(
         .await
 }
 
-/// Newest checks across all monitors (for the overview activity feed).
+/// Newest checks across all monitors inside `[start, end)` (overview feed).
 pub async fn recent_global(
     pool: &sqlx::SqlitePool,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
     limit: i64,
 ) -> Result<Vec<(Uuid, String, DateTime<Utc>, bool, Option<i64>, Option<i64>)>, sqlx::Error> {
     sqlx::query_as::<_, (Uuid, String, DateTime<Utc>, bool, Option<i64>, Option<i64>)>(
         "SELECT c.monitor_id, m.name, c.checked_at, c.success, c.http_status_code, \
          c.response_time_ms FROM check_results c JOIN monitors m ON m.id = c.monitor_id \
+         WHERE c.checked_at >= ? AND c.checked_at < ? \
          ORDER BY c.checked_at DESC, c.id DESC LIMIT ?",
     )
+    .bind(start)
+    .bind(end)
     .bind(limit)
     .fetch_all(pool)
     .await

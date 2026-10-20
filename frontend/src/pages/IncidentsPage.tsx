@@ -24,17 +24,22 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { StatusPill } from "@/components/status-pill";
 import { WindowPicker } from "@/components/window-picker";
-import { useIncidents } from "@/hooks/use-api";
+import { useIncidents, useMonitors } from "@/hooks/use-api";
 import { formatClock, formatSeconds } from "@/lib/format";
 import type { WindowQuery } from "@/types/api";
 
 export function IncidentsPage() {
   const [status, setStatus] = useState<"all" | "open" | "resolved">("all");
+  const [monitorId, setMonitorId] = useState("all");
   const [windowQuery, setWindowQuery] = useState<WindowQuery>({ window: "30d" });
   const [page, setPage] = useState(1);
 
+  const monitorsQuery = useMonitors({ page_size: 200, sort: "name", order: "asc" });
+  const monitorOptions = monitorsQuery.data?.data ?? [];
+
   const { data, isLoading, isError, refetch } = useIncidents({
     status: status === "all" ? undefined : status,
+    monitorId: monitorId === "all" ? undefined : monitorId,
     window: windowQuery.window,
     from: windowQuery.from,
     to: windowQuery.to,
@@ -64,6 +69,25 @@ export function IncidentsPage() {
             <SelectItem value="all">All incidents</SelectItem>
             <SelectItem value="open">Open</SelectItem>
             <SelectItem value="resolved">Resolved</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={monitorId}
+          onValueChange={(value) => {
+            setMonitorId(value);
+            setPage(1);
+          }}
+        >
+          <SelectTrigger className="w-52" aria-label="Filter by monitor">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All monitors</SelectItem>
+            {monitorOptions.map((monitor) => (
+              <SelectItem key={monitor.id} value={monitor.id}>
+                {monitor.name}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
         <WindowPicker

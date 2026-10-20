@@ -3,10 +3,14 @@ import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
+import { useTheme } from "next-themes";
 import {
   Warning as AlertTriangle,
   ArrowCounterClockwise as RotateCcw,
+  Moon,
+  Monitor,
   SlidersHorizontal as Settings2,
+  Sun,
 } from "@phosphor-icons/react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -44,6 +48,16 @@ const settingsSchema = z
       .int("Must be a whole number")
       .min(1, "At least 1 attempt")
       .max(5, "At most 5 attempts"),
+    default_retry_backoff_ms: z.coerce
+      .number()
+      .int("Must be whole milliseconds")
+      .min(0, "Backoff cannot be negative")
+      .max(60_000, "Backoff must be at most 60000 ms"),
+    default_retry_backoff_max_ms: z.coerce
+      .number()
+      .int("Must be whole milliseconds")
+      .min(0, "Backoff cannot be negative")
+      .max(300_000, "Maximum backoff must be at most 300000 ms"),
     default_expected_status_min: z.coerce
       .number()
       .int("Whole HTTP status")
@@ -60,6 +74,10 @@ const settingsSchema = z
       .min(1, "At least 1 concurrent check")
       .max(200, "At most 200 concurrent checks"),
   })
+  .refine((v) => v.default_retry_backoff_max_ms >= v.default_retry_backoff_ms, {
+    message: "Maximum backoff must be ≥ initial backoff",
+    path: ["default_retry_backoff_max_ms"],
+  })
   .refine((v) => v.default_expected_status_min <= v.default_expected_status_max, {
     message: "Range start must be ≤ range end",
     path: ["default_expected_status_max"],
@@ -71,14 +89,23 @@ const DEFAULTS: SettingsFormValues = {
   default_check_interval_seconds: 30,
   default_timeout_ms: 10_000,
   default_retry_max_attempts: 3,
+  default_retry_backoff_ms: 500,
+  default_retry_backoff_max_ms: 10_000,
   default_expected_status_min: 200,
   default_expected_status_max: 399,
   max_concurrent_checks: 8,
 };
 
+const THEME_OPTIONS = [
+  { value: "light", label: "Light", icon: Sun },
+  { value: "dark", label: "Dark", icon: Moon },
+  { value: "system", label: "System", icon: Monitor },
+] as const;
+
 export function SettingsPage() {
   const settingsQuery = useSettings();
   const update = useUpdateSettings();
+  const { theme, setTheme } = useTheme();
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema) as Resolver<SettingsFormValues>,
@@ -102,6 +129,8 @@ export function SettingsPage() {
       default_check_interval_seconds: data.default_check_interval_seconds,
       default_timeout_ms: data.default_timeout_ms,
       default_retry_max_attempts: data.default_retry_max_attempts,
+      default_retry_backoff_ms: data.default_retry_backoff_ms,
+      default_retry_backoff_max_ms: data.default_retry_backoff_max_ms,
       default_expected_status_min: data.default_expected_status_min,
       default_expected_status_max: data.default_expected_status_max,
       max_concurrent_checks: data.max_concurrent_checks,
@@ -225,6 +254,34 @@ export function SettingsPage() {
                 />
                 <FormField
                   control={form.control}
+                  name="default_retry_backoff_ms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Initial retry backoff (ms)</FormLabel>
+                      <FormControl>
+                        <Input type="number" inputMode="numeric" className="font-mono" {...field} />
+                      </FormControl>
+                      <FormDescription>Delay before the second attempt · 0 – 60000</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="default_retry_backoff_max_ms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Max retry backoff (ms)</FormLabel>
+                      <FormControl>
+                        <Input type="number" inputMode="numeric" className="font-mono" {...field} />
+                      </FormControl>
+                      <FormDescription>Exponential backoff ceiling · 0 – 300000</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
                   name="max_concurrent_checks"
                   render={({ field }) => (
                     <FormItem>
@@ -281,6 +338,34 @@ export function SettingsPage() {
               </div>
             </form>
           </Form>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6 max-w-2xl">
+        <CardHeader>
+          <CardTitle>Appearance</CardTitle>
+          <CardDescription>
+            Theme preference is stored in this browser and applies immediately.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div role="group" aria-label="Theme preference" className="flex flex-wrap gap-2">
+            {THEME_OPTIONS.map((option) => {
+              const active = theme === option.value;
+              const Icon = option.icon;
+              return (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={active ? "default" : "outline"}
+                  aria-pressed={active}
+                  onClick={() => setTheme(option.value)}
+                >
+                  <Icon /> {option.label}
+                </Button>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
     </>
