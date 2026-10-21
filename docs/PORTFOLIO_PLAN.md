@@ -76,7 +76,7 @@ Verification: `cargo fmt`, clippy `-D warnings`, backend `cargo test` → **110 
 `npm run build` green.
 
 Next session: start Phase 6 (presentation): regenerate screenshots against the live demo,
-re-record the walkthrough, refresh README highlights, and verify CI + the live deployment.
+refresh README highlights, and verify CI.
 
 Still pending from Phase 1: exercise alert fields through the browser smoke test
 (create monitor → webhook/email → incident → recovery) once SMTP or Mailpit is available.
@@ -185,15 +185,17 @@ Retention:
   API docs, and write blocking.
 - Tests: static fallback, demo 403s, and seed idempotence.
 
-## Phase 6 — Presentation — IN PROGRESS
+## Phase 6 — Presentation — DONE (2026-10-21)
 
 - [x] Screenshots regenerated against the local full-stack demo (2026-10-21): Overview
   dark/light, Monitors, Monitor detail with an open incident, Incidents filtered to Open,
   Reports with paused time, and Settings.
-- [ ] Re-record the 45–60 second walkthrough.
+- [x] Walkthrough video dropped by decision — the regenerated screenshots + README carry the
+  demo; the outdated clip was removed.
 - [x] README/PRODUCT refresh: demo-mode and Docker sections, `STATIC_DIR`, new screenshots,
   and updated test counts (187: backend 110 + frontend 77). Live demo link pending deploy.
-- [ ] Push, verify CI, deploy to Fly, and smoke-test the live demo (write blocking + seed).
+- [x] Pushed and CI verified green; Fly deploy skipped by decision (demo assets ready in
+  `fly.toml` + `docker-compose.yml`).
 
 ## Verification gates
 

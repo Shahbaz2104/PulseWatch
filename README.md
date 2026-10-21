@@ -15,13 +15,13 @@ PulseWatch checks URLs on a schedule, records response times and HTTP status, re
 
 ## Demo
 
-<video src="docs/linkedin-demo.mp4" poster="docs/linkedin-poster.png" controls muted playsinline width="100%"></video>
+Every screenshot below was captured from the running full-stack app. To run it locally:
 
-[▶ Watch the 52-second walkthrough (MP4)](docs/linkedin-demo.mp4) · [Poster frame](docs/linkedin-poster.png)
+```bash
+docker compose up --build   # http://localhost:8080
+```
 
-The clip covers the full loop: overview → add a monitor → live first check → per-attempt history → reports → settings.
-
-The hosted demo runs `DEMO_MODE=true`: reads are public, every write returns `403` (the UI disables action controls), and an empty database is seeded on first boot with monitors, checks, incidents, and one paused monitor.
+With `DEMO_MODE=true` (as wired in `docker-compose.yml`/`fly.toml`): reads are public, every write returns `403` (the UI disables action controls), and an empty database is seeded on first boot with monitors, checks, incidents, and one paused monitor.
 
 ---
 
