@@ -2,7 +2,15 @@
  * paused automatically when the tab is hidden (Query default behaviour). */
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { checksApi, incidentsApi, monitorsApi, reportsApi, settingsApi } from "@/lib/endpoints";
+import {
+  authApi,
+  checksApi,
+  healthApi,
+  incidentsApi,
+  monitorsApi,
+  reportsApi,
+  settingsApi,
+} from "@/lib/endpoints";
 import type { CreateMonitorRequest, UpdateMonitorRequest, WindowQuery } from "@/types/api";
 
 export const queryKeys = {
@@ -17,6 +25,8 @@ export const queryKeys = {
   incidentReport: (window: WindowQuery) => ["incident-report", window] as const,
   incidents: (params: Record<string, unknown>) => ["incidents", params] as const,
   settings: ["settings"] as const,
+  health: ["health"] as const,
+  auth: ["auth"] as const,
 };
 
 const LIST_POLL_MS = 30_000;
@@ -99,6 +109,59 @@ export function useSettings() {
     queryKey: queryKeys.settings,
     queryFn: settingsApi.get,
     staleTime: 60_000,
+  });
+}
+
+/** True when the backend runs as a read-only public demo. */
+export function useDemoMode(): boolean {
+  return useAuthStatus().data?.demo_mode ?? false;
+}
+
+/** Public session state used to render sign-in/out controls. */
+export function useAuthStatus() {
+  return useQuery({
+    queryKey: queryKeys.auth,
+    queryFn: authApi.status,
+    staleTime: 30_000,
+    retry: false,
+  });
+}
+
+export function useLogin() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: authApi.login,
+    onSuccess: () => {
+      queryClient.setQueryData<{ authenticated: boolean; demo_mode: boolean }>(
+        queryKeys.auth,
+        { authenticated: true, demo_mode: false },
+      );
+      void queryClient.invalidateQueries();
+    },
+  });
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: authApi.logout,
+    onSuccess: () => {
+      queryClient.setQueryData<{ authenticated: boolean; demo_mode: boolean }>(
+        queryKeys.auth,
+        (current) => ({ authenticated: false, demo_mode: current?.demo_mode ?? false }),
+      );
+      void queryClient.invalidateQueries();
+    },
+  });
+}
+
+/** Server capabilities needed for UI hints (never fetches secrets). */
+export function useHealth() {
+  return useQuery({
+    queryKey: queryKeys.health,
+    queryFn: healthApi.get,
+    staleTime: 60_000,
+    retry: false,
   });
 }
 

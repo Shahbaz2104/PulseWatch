@@ -43,6 +43,37 @@ describe("monitorSchema", () => {
     }
   });
 
+  it("validates optional alert destinations and allows clearing", () => {
+    const valid = monitorSchema.safeParse({
+      ...monitorDefaults,
+      url: "https://example.com",
+      alert_webhook_url: "https://hooks.example.com/pulsewatch",
+      alert_email: "oncall@example.com",
+    });
+    expect(valid.success).toBe(true);
+
+    const cleared = monitorSchema.safeParse({
+      ...monitorDefaults,
+      url: "https://example.com",
+      alert_webhook_url: "",
+      alert_email: "",
+    });
+    expect(cleared.success).toBe(true);
+
+    const invalid = monitorSchema.safeParse({
+      ...monitorDefaults,
+      url: "https://example.com",
+      alert_webhook_url: "not-a-url",
+      alert_email: "not-an-email",
+    });
+    expect(invalid.success).toBe(false);
+    if (!invalid.success) {
+      const fields = invalid.error.issues.map((issue) => issue.path[0]);
+      expect(fields).toContain("alert_webhook_url");
+      expect(fields).toContain("alert_email");
+    }
+  });
+
   it("coerces numeric strings from inputs", () => {
     const result = monitorSchema.safeParse({
       ...monitorDefaults,

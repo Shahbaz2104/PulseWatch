@@ -40,8 +40,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         shutdown: CancellationToken::new(),
     };
 
+    if config.demo_mode {
+        match pulsewatch_backend::services::demo_service::seed_if_empty(&state).await {
+            Ok(outcome) if outcome.seeded() => tracing::info!(
+                monitors = outcome.monitors,
+                checks = outcome.checks,
+                incidents = outcome.incidents,
+                "seeded demo fixtures"
+            ),
+            Ok(_) => tracing::info!("demo data already present; skipping seed"),
+            Err(err) => tracing::warn!(error = %err, "demo seeding failed"),
+        }
+    }
+
     let app = routes::router(state.clone());
     let _scheduler = pulsewatch_backend::services::scheduler::spawn(state.clone());
+    let _alerts = pulsewatch_backend::services::alert_service::spawn(state.clone());
+    let _retention = pulsewatch_backend::services::retention_service::spawn(state.clone());
     let listener = tokio::net::TcpListener::bind(config.bind_addr()).await?;
     tracing::info!(addr = %listener.local_addr()?, "HTTP server listening");
 

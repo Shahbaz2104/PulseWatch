@@ -30,13 +30,30 @@ function exportUptimeCsv(
     status: string;
     checks: number;
     successes: number;
+    pausedSeconds: number;
     uptime: string;
   }>,
   windowLabel: string,
 ) {
-  const header = ["monitor", "url", "status", "checks", "successes", "uptime_percent"];
+  const header = [
+    "monitor",
+    "url",
+    "status",
+    "checks",
+    "successes",
+    "paused_seconds",
+    "uptime_percent",
+  ];
   const lines = rows.map((row) =>
-    [row.name, row.url, row.status, row.checks, row.successes, row.uptime]
+    [
+      row.name,
+      row.url,
+      row.status,
+      row.checks,
+      row.successes,
+      row.pausedSeconds,
+      row.uptime,
+    ]
       .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
       .join(","),
   );
@@ -83,6 +100,7 @@ export function ReportsPage() {
       status: row.current_status,
       checks: row.checks,
       successes: row.successes,
+      pausedSeconds: row.paused_seconds,
       uptime: row.uptime_percent == null ? "" : row.uptime_percent.toFixed(3),
     })) ?? [];
 
@@ -90,7 +108,7 @@ export function ReportsPage() {
     <>
       <PageHeader
         title="Reports"
-        description="Aggregated uptime, latency percentiles, and downtime."
+        description="Aggregated uptime, latency percentiles, downtime, and paused time."
         actions={
           hasMonitors ? (
             <Button
@@ -108,8 +126,8 @@ export function ReportsPage() {
 
       {isLoading && (
         <div className="space-y-4">
-          <div className="grid gap-4 sm:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, index) => (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, index) => (
               <Skeleton key={index} className="h-28" />
             ))}
           </div>
@@ -127,7 +145,7 @@ export function ReportsPage() {
 
       {uptime.data && hasMonitors && (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard
               label="Overall uptime"
               value={uptime.data.overall_uptime_percent}
@@ -152,6 +170,12 @@ export function ReportsPage() {
               delay={0.08}
               hint="Open incidents measured to now"
             />
+            <MetricCard
+              label="Paused (excluded)"
+              value={uptime.data ? formatSeconds(uptime.data.total_paused_seconds) : "—"}
+              delay={0.12}
+              hint="Monitor-time outside check-based uptime"
+            />
           </div>
 
           <Card>
@@ -167,6 +191,7 @@ export function ReportsPage() {
                       <TableHead>Status</TableHead>
                       <TableHead>Checks</TableHead>
                       <TableHead>Successes</TableHead>
+                      <TableHead>Paused (excluded)</TableHead>
                       <TableHead>Uptime</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -189,6 +214,13 @@ export function ReportsPage() {
                         </TableCell>
                         <TableCell className="font-mono text-sm">{row.checks}</TableCell>
                         <TableCell className="font-mono text-sm">{row.successes}</TableCell>
+                        <TableCell className="font-mono text-sm">
+                          {row.paused_seconds > 0 ? (
+                            formatSeconds(row.paused_seconds)
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="font-mono text-sm">
                           {formatPercent(row.uptime_percent)}
                         </TableCell>

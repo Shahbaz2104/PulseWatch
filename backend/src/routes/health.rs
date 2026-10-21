@@ -14,6 +14,10 @@ pub struct HealthResponse {
     pub version: &'static str,
     /// `ok` or `unavailable` — no configuration details are exposed.
     pub database: &'static str,
+    /// Whether SMTP email delivery is configured (never exposes credentials).
+    pub email_configured: bool,
+    /// Read-only public demo: auth is bypassed and every mutation is rejected.
+    pub demo_mode: bool,
 }
 
 /// Service health probe. Also mounted at `/api/v1/health`.
@@ -46,6 +50,8 @@ pub async fn health(State(state): State<AppState>) -> (StatusCode, Json<HealthRe
                 service: "pulsewatch",
                 version: env!("CARGO_PKG_VERSION"),
                 database,
+                email_configured: state.config.email_configured(),
+                demo_mode: state.config.demo_mode,
             }),
         )
     } else {
@@ -56,6 +62,8 @@ pub async fn health(State(state): State<AppState>) -> (StatusCode, Json<HealthRe
                 service: "pulsewatch",
                 version: env!("CARGO_PKG_VERSION"),
                 database,
+                email_configured: state.config.email_configured(),
+                demo_mode: state.config.demo_mode,
             }),
         )
     }

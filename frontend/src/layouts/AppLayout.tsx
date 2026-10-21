@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { useRef, useState } from "react";
+import { Suspense, useRef, useState } from "react";
 import { motion } from "motion/react";
 import {
   Heartbeat,
@@ -16,8 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AmbientCanvas } from "@/components/ambient-canvas";
+import { RouteFallback } from "@/components/route-fallback";
 import { BootOverlay } from "@/components/boot-overlay";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AuthAction } from "@/features/auth/auth-action";
 import { CommandPalette } from "@/components/command-palette";
 import { PageTransition } from "@/components/page-transition";
 import { cn } from "@/lib/utils";
@@ -272,11 +274,14 @@ export function AppLayout() {
               </kbd>
             </Button>
             <ThemeToggle />
+            <AuthAction />
           </div>
         </header>
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8">
           <PageTransition>
-            <Outlet />
+            <Suspense fallback={<RouteFallback />}>
+              <Outlet />
+            </Suspense>
           </PageTransition>
         </main>
       </div>

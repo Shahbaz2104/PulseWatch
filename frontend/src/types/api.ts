@@ -25,6 +25,9 @@ export interface Monitor {
   consecutive_failures_threshold: number;
   consecutive_successes_threshold: number;
   retry_max_attempts: number;
+  /** Alert destinations are write-only: the API reports configuration only. */
+  alert_webhook_configured: boolean;
+  alert_email_configured: boolean;
   current_status: MonitorStatus;
   consecutive_failures: number;
   consecutive_successes: number;
@@ -126,6 +129,7 @@ export interface MonitorUptime {
   current_status: MonitorStatus;
   checks: number;
   successes: number;
+  paused_seconds: number;
   uptime_percent: number | null;
 }
 
@@ -134,6 +138,7 @@ export interface UptimeReport {
   monitors: MonitorUptime[];
   total_checks: number;
   total_successes: number;
+  total_paused_seconds: number;
   overall_uptime_percent: number | null;
 }
 
@@ -202,6 +207,7 @@ export interface AppSettings {
   default_expected_status_min: number;
   default_expected_status_max: number;
   max_concurrent_checks: number;
+  check_retention_days: number;
 }
 
 export interface SettingsPatch {
@@ -213,6 +219,7 @@ export interface SettingsPatch {
   default_expected_status_min?: number;
   default_expected_status_max?: number;
   max_concurrent_checks?: number;
+  check_retention_days?: number;
 }
 
 export interface SettingsUpdateResponse {
@@ -230,9 +237,28 @@ export interface CreateMonitorRequest {
   consecutive_failures_threshold?: number;
   consecutive_successes_threshold?: number;
   retry_max_attempts?: number;
+  /** Omit to leave unchanged; send an empty string to clear. */
+  alert_webhook_url?: string;
+  /** Omit to leave unchanged; send an empty string to clear. */
+  alert_email?: string;
 }
 
 export type UpdateMonitorRequest = Partial<CreateMonitorRequest>;
+
+export interface HealthResponse {
+  status: "ok" | "degraded";
+  service: string;
+  version: string;
+  database: "ok" | "unavailable";
+  email_configured: boolean;
+  /** Read-only public demo: auth is bypassed and mutations are disabled. */
+  demo_mode: boolean;
+}
+
+export interface AuthStatus {
+  authenticated: boolean;
+  demo_mode: boolean;
+}
 
 /** Reporting window query parameters shared by list/report endpoints. */
 export interface WindowQuery {

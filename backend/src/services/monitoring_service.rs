@@ -176,33 +176,48 @@ async fn execute_and_persist(
     let elapsed_ms = started.elapsed().as_millis() as i64;
     let completed_at = Utc::now();
 
-    let transition = incident_service::plan_transition(
-        &monitor,
-        matches!(final_outcome, AttemptOutcome::Success { .. }),
-    );
     let (result, failure_reason) =
         build_check_result(&monitor, final_outcome, checked_at, completed_at, attempt);
 
-    // Scheduled checks keep the interval claimed at dispatch time; manual
-    // checks re-arm the schedule so the monitor joins/refreshes its cadence.
-    let next_check_at = match trigger {
-        CheckTrigger::Scheduled => monitor.next_check_at,
-        CheckTrigger::Manual => {
-            Some(completed_at + chrono::Duration::seconds(monitor.check_interval_seconds))
-        }
-    };
-
     let mut tx = state.pool.begin().await?;
     check_repository::insert(&mut *tx, &result).await?;
-    let transition_outcome = incident_service::persist_check_outcome(
-        &mut tx,
-        &monitor,
-        transition,
-        failure_reason.as_deref(),
-        checked_at,
-        next_check_at,
-    )
-    .await?;
+
+    // The check may have started before a concurrent pause. Re-read the
+    // monitor inside the write transaction: if it is now paused/disabled,
+    // keep the historical check row but never reopen an incident or overwrite
+    // the paused status.
+    let current = monitor_repository::find_by_id(&mut *tx, monitor.id)
+        .await?
+        .ok_or(CheckError::NotFound)?;
+    let was_paused = !current.enabled || current.current_status == MonitorStatus::Paused;
+
+    let (monitor_after, incident_opened, incident_resolved) = if was_paused {
+        (current, false, false)
+    } else {
+        let transition = incident_service::plan_transition(&current, result.success);
+        // Scheduled checks keep the interval claimed at dispatch time; manual
+        // checks re-arm the schedule so the monitor joins its cadence.
+        let next_check_at = match trigger {
+            CheckTrigger::Scheduled => current.next_check_at,
+            CheckTrigger::Manual => {
+                Some(completed_at + chrono::Duration::seconds(current.check_interval_seconds))
+            }
+        };
+        let outcome = incident_service::persist_check_outcome(
+            &mut tx,
+            &current,
+            transition,
+            failure_reason.as_deref(),
+            checked_at,
+            next_check_at,
+        )
+        .await?;
+        (
+            outcome.monitor,
+            outcome.incident_opened.is_some(),
+            outcome.incident_resolved.is_some(),
+        )
+    };
     tx.commit().await?;
 
     tracing::info!(
@@ -212,14 +227,15 @@ async fn execute_and_persist(
         elapsed_ms,
         success = result.success,
         error_type = result.error_type.map(|e| e.as_str()).unwrap_or("none"),
-        status = transition_outcome.monitor.current_status.as_str(),
+        status = monitor_after.current_status.as_str(),
+        paused_during_check = was_paused,
         "check completed"
     );
 
     Ok(CheckOutcome {
-        monitor: transition_outcome.monitor,
-        incident_opened: transition_outcome.incident_opened.is_some(),
-        incident_resolved: transition_outcome.incident_resolved.is_some(),
+        monitor: monitor_after,
+        incident_opened,
+        incident_resolved,
         result,
     })
 }

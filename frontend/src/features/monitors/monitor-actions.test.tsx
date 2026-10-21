@@ -32,6 +32,8 @@ function monitor(overrides: Partial<MonitorSummary> = {}): MonitorSummary {
     consecutive_failures_threshold: 1,
     consecutive_successes_threshold: 1,
     retry_max_attempts: 2,
+    alert_webhook_configured: false,
+    alert_email_configured: false,
     current_status: "up",
     consecutive_failures: 0,
     consecutive_successes: 2,

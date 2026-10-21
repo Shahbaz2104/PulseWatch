@@ -21,13 +21,15 @@ PulseWatch checks URLs on a schedule, records response times and HTTP status, re
 
 The clip covers the full loop: overview → add a monitor → live first check → per-attempt history → reports → settings.
 
+The hosted demo runs `DEMO_MODE=true`: reads are public, every write returns `403` (the UI disables action controls), and an empty database is seeded on first boot with monitors, checks, incidents, and one paused monitor.
+
 ---
 
 ## Use cases
 
 **Self-hosted uptime monitoring** — a UptimeRobot-style alternative you run yourself: watch APIs, homelab services, side projects, or client sites on your own schedule, with no per-monitor limits and no data leaving your machine. Alerts-grade raw data is exposed over REST and CSV.
 
-**Portfolio / proof-of-work for engineers** — the codebase demonstrates production concerns end-to-end: a Tokio scheduler with atomic claim semantics and graceful shutdown, a single-transaction state machine for check → counters → incident, SSRF/DNS-rebinding hardening, honest metrics that never fabricate 100%, OpenAPI docs, and a green CI gate over 145 tests.
+**Portfolio / proof-of-work for engineers** — the codebase demonstrates production concerns end-to-end: a Tokio scheduler with atomic claim semantics and graceful shutdown, a single-transaction state machine for check → counters → incident, SSRF/DNS-rebinding hardening, honest metrics that never fabricate 100%, single-admin cookie authentication, OpenAPI docs, and a green CI gate over 187 tests.
 
 **Reference implementation for common patterns** — borrow the parts you need: axum + sqlx service/repository layering, exact nearest-rank percentiles, exponential backoff with full jitter and `Retry-After`, windowed report queries, or a React 19 + TanStack Query console with command palette and light/dark theming.
 
@@ -49,11 +51,13 @@ The clip covers the full loop: overview → add a monitor → live first check �
 
 ## Features
 
+- **Authentication** — single-admin Argon2id password, HMAC-signed HttpOnly session cookies (7-day expiry), read-only public demo mode; reads stay public while every mutation requires the session
 - **Monitors** — CRUD with per-monitor interval, timeout, retries, expected status range, and consecutive success/failure thresholds
 - **Background scheduler** — 1-second tick, atomic claim (`next_check_at`), global concurrency semaphore, graceful shutdown
 - **Check engine** — pooled `reqwest` client, header-arrival timing, error taxonomy (DNS / connection / timeout / TLS / status mismatch / redirects / blocked / cancelled / internal), exponential backoff with full jitter, `Retry-After` support
 - **SSRF / DNS-rebinding defense** — public-IP-only policy at create time, custom DNS resolver, re-validation on every redirect hop, private targets blocked by default
 - **Incidents** — transactional open/resolve on threshold transitions; partial unique index guarantees one open incident per monitor
+- **Alerting** — per-monitor webhook and email destinations, enqueued in the same transaction as the incident transition; a durable outbox worker delivers with bounded timeouts and exponential retries. Destinations are write-only: public responses expose only `alert_webhook_configured` / `alert_email_configured`
 - **Reports** — uptime (null when 0 checks, never fabricated 100%), median/p95 over successful checks only, downtime from incident durations, hourly/daily series; latency stats batched in a single scan (response-times stays sub-0.5s at 100+ monitors)
 - **Settings API** — defaults for new monitors (env + DB override), restart-required flag for concurrency changes
 - **Frontend console** — collapsible sidebar, ⌘K command palette, live polling, charts, uptime strip, search/filter/sort, windowed dashboard feeds, incident history + recent errors per monitor, incident monitor filter, CSV export, light/dark theme (including a Settings preference), client-side pagination for 100-row tables
@@ -90,16 +94,18 @@ flowchart LR
   API --> DB
 ```
 
-### Data model (migrations/0001_init.sql)
+### Data model (migrations/0001–0003)
 
 | Table | Role |
 |---|---|
 | `monitors` | URL, config, current status, consecutive counters, `next_check_at` |
 | `check_results` | Per-attempt outcome, HTTP status, response time, error type/message |
 | `incidents` | Opened/resolved transitions with `started_at` / `resolved_at` / failure reason |
+| `monitor_pauses` | Paused intervals (`paused_at` / `resumed_at`), one open interval per monitor |
+| `alert_deliveries` | Durable webhook/email outbox with retry state |
 | `settings` | Key-value overrides merged over env defaults |
 
-Indexes cover scheduler claims, windowed check aggregates, and the open-incident uniqueness constraint.
+Indexes cover scheduler claims, windowed check aggregates, open-incident uniqueness, pause windows, and completed-delivery retention.
 
 ---
 
@@ -133,8 +139,12 @@ Indexes cover scheduler claims, windowed check aggregates, and the open-incident
 npm install                 # root scripts (concurrently)
 npm --prefix frontend install
 
-# 2. Configuration
-cp .env.example .env        # adjust as needed
+# 2. Configuration (auth is required outside demo mode)
+cp .env.example .env
+# Generate an Argon2id hash and paste it into ADMIN_PASSWORD_HASH **inside
+# single quotes** (dotenvy expands unquoted `$`, which corrupts PHC strings):
+printf '%s\n' 'choose-a-long-password' | cargo run --bin hash-password
+openssl rand -base64 48     # paste into SESSION_SECRET
 
 # 3. Run both (backend :3000, frontend :5173)
 npm run dev
@@ -142,23 +152,36 @@ npm run dev
 
 Open **http://localhost:5173** for the console, or **http://localhost:3000/api/v1/docs** for Swagger UI.
 
-### Docker (API only)
+### Docker (full stack)
 
 ```bash
+# Export ADMIN_PASSWORD_HASH and SESSION_SECRET first (or put them in .env).
+# To try the read-only public demo instead: DEMO_MODE=true (seeds itself on
+# first boot, rejects every write).
 docker compose up --build
-# API + Swagger on http://localhost:3000
+# App + Swagger on http://localhost:3000
 # SQLite persists in the pulsewatch-data volume
 ```
 
-The image is multi-stage (`backend.Dockerfile`), non-root-ready, and includes a `/health` healthcheck. Host `frontend/dist` (from `npm --prefix frontend run build`) behind any static server for a full stack, or reverse-proxy both.
+The root `Dockerfile` is multi-stage (Node builds the frontend, Rust builds the backend) and the runtime serves both: static assets from `STATIC_DIR` with SPA fallback, while unknown `/api/*` paths stay JSON 404. Includes a `/health` healthcheck.
+
+Email alerts locally:
+
+```bash
+docker compose --profile mailpit up --build
+# Mailpit inbox: http://localhost:8025
+# then run with SMTP_HOST=mailpit SMTP_PORT=1025 SMTP_FROM=alerts@pulsewatch.local
+```
 
 ### Production-ish run
 
 ```bash
 npm run build               # cargo build + vite build
-# serve the backend binary; it serves the API on :3000
-# host frontend/dist behind any static file server or reverse proxy
+STATIC_DIR=frontend/dist ./target/release/pulsewatch
+# backend serves the API and the built SPA on :3000; no reverse proxy required
 ```
+
+Fly.io deploys use `fly.toml` (read-only demo: `DEMO_MODE=true`, volume mounted at `/data`, manual `fly deploy`).
 
 ---
 
@@ -170,16 +193,26 @@ See `.env.example`. Important variables:
 |---|---|---|
 | `HOST` / `PORT` | `127.0.0.1` / `3000` | API bind |
 | `DATABASE_URL` | `sqlite://./data/pulsewatch.db` | Parent dirs created automatically |
+| `STATIC_DIR` | unset | Built frontend dir served with SPA fallback; `/api/*` stays JSON |
 | `DEFAULT_CHECK_INTERVAL_SECONDS` | `60` | New-monitor default (10–86400) |
 | `DEFAULT_TIMEOUT_MS` | `5000` | Per-request timeout (100–60000) |
 | `DEFAULT_RETRY_MAX_ATTEMPTS` | `2` | First try + retries (1–5) |
 | `DEFAULT_RETRY_BACKOFF_MS` | `500` | Initial retry delay (0–60000) |
 | `DEFAULT_RETRY_BACKOFF_MAX_MS` | `10000` | Backoff ceiling (0–300000, ≥ initial) |
 | `MAX_CONCURRENT_CHECKS` | `16` | Scheduler semaphore (1–256) |
+| `CHECK_RETENTION_DAYS` | `90` | Check-history retention (7–365); override in Settings |
 | `ALLOWED_ORIGINS` | Vite dev origins | CORS |
 | `PULSEWATCH_ALLOW_PRIVATE_TARGETS` | unset | **Tests/dev only** — allow loopback targets for wiremock |
+| `ADMIN_PASSWORD_HASH` | — | Argon2id PHC hash; **required** unless `DEMO_MODE=true` |
+| `SESSION_SECRET` | — | ≥32 bytes for HMAC-signed session cookies; **required** unless demo |
+| `SESSION_COOKIE_SECURE` | `false` | Set `true` behind HTTPS |
+| `DEMO_MODE` | `false` | Read-only public demo: disables auth and all mutations |
+| `SMTP_HOST` / `SMTP_PORT` | unset / `587` | Email alerts; webhook alerts work without SMTP |
+| `SMTP_FROM` | unset | Required when `SMTP_HOST` is set |
+| `SMTP_USERNAME` / `SMTP_PASSWORD` | unset | Optional; must be set together |
+| `SMTP_TLS` | `starttls` | `starttls`, `implicit`, or `none` |
 
-Runtime overrides for check defaults and retry backoff live in the **Settings** page (persisted in the `settings` table); backoff changes apply to the next check. Changing max concurrency requires a process restart.
+Runtime overrides for check defaults, retry backoff, and check retention live in the **Settings** page (persisted in the `settings` table); backoff changes apply to the next check. Changing max concurrency requires a process restart. A retention worker runs at startup and every 6 hours, deleting old checks and completed alert deliveries in batches; incidents are never deleted.
 
 ---
 
@@ -189,9 +222,10 @@ Base path: `/api/v1`
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` (also `/api/v1/health`) | Liveness + DB status |
+| GET | `/health` (also `/api/v1/health`) | Liveness + DB status (incl. `demo_mode`) |
 | GET | `/openapi.json` | OpenAPI document |
 | GET | `/docs` | Swagger UI |
+| POST | `/auth/login` · `/auth/logout` · GET `/auth/status` | Admin session (HMAC cookie) |
 | GET/POST | `/monitors` | List (filters + pagination) / create |
 | GET/PUT/DELETE | `/monitors/{id}` | Read / update / delete (cascades) |
 | POST | `/monitors/{id}/check` | Run one check now (409 if paused/in-flight) |
@@ -205,6 +239,8 @@ Base path: `/api/v1`
 | GET | `/reports/incidents` | Windowed incident stats |
 | GET | `/incidents` · `/incidents/{id}` | Incident list / detail |
 | GET/PUT | `/settings` | Effective settings / partial update |
+
+Reads are public. `POST`/`PUT`/`DELETE` on monitors, checks, and settings require the session cookie and return `401` without it (`403` in demo mode).
 
 Errors use a consistent envelope:
 
@@ -221,12 +257,16 @@ Errors use a consistent envelope:
 ### Example
 
 ```bash
-curl -s -X POST http://localhost:3000/api/v1/monitors \
+# Sign in once; the cookie jar carries the HttpOnly session cookie.
+curl -s -c /tmp/pw-cookies -X POST http://localhost:3000/api/v1/auth/login \
+  -H 'Content-Type: application/json' -d '{"password":"your-admin-password"}'
+
+curl -s -b /tmp/pw-cookies -X POST http://localhost:3000/api/v1/monitors \
   -H 'Content-Type: application/json' \
   -d '{"name":"Example","url":"https://example.com","check_interval_seconds":30}'
 
-curl -s -X POST http://localhost:3000/api/v1/monitors/<id>/check
-curl -s http://localhost:3000/api/v1/reports/uptime?window=24h
+curl -s -b /tmp/pw-cookies -X POST http://localhost:3000/api/v1/monitors/<id>/check
+curl -s http://localhost:3000/api/v1/reports/uptime?window=24h   # public read
 ```
 
 ---
@@ -250,7 +290,7 @@ curl -s http://localhost:3000/api/v1/reports/uptime?window=24h
 unknown --fail(≥threshold)--> down   [opens incident]
 up      --fail(≥threshold)--> down   [opens incident]
 down    --success(≥threshold)--> up  [resolves incident]
-any     --pause--> paused            [no checks; never reported as up]
+any     --pause--> paused            [records interval; resolves incident silently]
 ```
 UI amber **Degraded** = nominally `up` but with consecutive failures (recovery threshold not yet met).
 
@@ -259,8 +299,8 @@ UI amber **Degraded** = nominally `up` but with consecutive failures (recovery t
 - **0 checks → `null`** (UI shows “—”), never a fake 100%.
 - Latency (avg / median / p95) uses **successful checks only**; failures are excluded, never counted as 0 ms.
 - Median/p95 are exact **nearest-rank** percentiles; fewer than 2 samples → `null`.
-- Downtime = Σ incident durations (open incidents measured to now). Only incidents that **started** inside the window are counted.
-- Paused wall-clock time is **not** excluded from uptime (v1 limitation).
+- Downtime = Σ incident durations (open incidents measured to now), excluding paused overlap. Only incidents that **started** inside the window are counted.
+- Paused time is reported as `paused_seconds` clipped to the window. Uptime stays **check-based**; paused time is excluded from downtime, not redefined as availability.
 
 ### SSRF / DNS rebinding
 1. Create/update validation rejects non-HTTP(S), userinfo, private/loopback/link-local/reserved IP literals, and blocklisted hostnames.
@@ -286,9 +326,9 @@ npm test
 npm run lint
 ```
 
-**Current counts:** **145 tests** — backend **80 tests** (47 unit + 33 integration) · frontend **65 tests** · `cargo fmt` + `clippy -D warnings` clean · `oxlint` clean · production build green.
+**Current counts:** **187 tests** — backend **110 tests** (52 unit + 58 integration) · frontend **77 tests** · `cargo fmt` + `clippy -D warnings` clean · `oxlint` clean · production build green.
 
-Integration tests cover CRUD, SSRF denials, manual-check outcomes, incident open/resolve, scheduler recovery/overlap/shutdown, hand-computed report metrics, windowed overview feeds, and settings validation. Frontend tests cover API error mapping, monitor create/edit validation, pause/resume/delete actions, dashboard metrics, window selection, loading/error/empty states, and theme preferences.
+Integration tests cover CRUD, SSRF denials, manual-check outcomes, incident open/resolve, alert enqueue/delivery/retries/privacy, auth login/session/logout/demo mode, pause intervals/in-flight races, retention cleanup, scheduler recovery/overlap/shutdown, hand-computed report metrics, windowed overview feeds, and settings validation. Frontend tests cover API error mapping, monitor create/edit validation, pause/resume/delete actions, login/demo/sign-out states, dashboard metrics, window selection, loading/error/empty states, and theme preferences.
 
 ---
 
@@ -296,7 +336,7 @@ Integration tests cover CRUD, SSRF denials, manual-check outcomes, incident open
 
 - **Check-based uptime**, not passive probing — uptime reflects scheduled checks only.
 - **Single-process scheduler** — horizontal scale-out would need a distributed lease (not implemented).
-- **No authentication** — the API and console are open to whoever can reach them; put a reverse proxy + auth in front for any shared deployment.
+- **Single-admin auth only** — one Argon2id-hashed password and one session secret in env, with no user accounts, roles, or password reset. Sessions are stateless for 7 days; rotate `SESSION_SECRET` to revoke all of them. Terminate TLS at a reverse proxy and set `SESSION_COOKIE_SECURE=true`.
 - **Paused time is not excluded** from uptime percentages.
 - **System proxies are intentionally disabled** so SSRF defenses cannot be bypassed; private targets require `PULSEWATCH_ALLOW_PRIVATE_TARGETS=true` (dev/tests only).
 - SQLite is fine for a single node; multi-writer / HA would want PostgreSQL.

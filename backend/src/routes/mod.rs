@@ -1,17 +1,24 @@
-//! HTTP routing: API routes, the OpenAPI UI, CORS and tracing layers.
+//! HTTP routing: API routes, the OpenAPI UI, optional static frontend
+//! serving, CORS and tracing layers.
 
 use axum::{
-    http::{HeaderValue, Method},
+    http::{
+        header::{ACCEPT, AUTHORIZATION, CONTENT_TYPE},
+        HeaderValue, Method,
+    },
     routing::get,
     Router,
 };
 use swagger_ui_dist::{generate_routes, ApiDefinition, OpenApiSource};
-use tower_http::cors::{Any, CorsLayer};
+use tower_http::cors::CorsLayer;
+use tower_http::services::{ServeDir, ServeFile};
 use tower_http::trace::TraceLayer;
 
+use crate::error::AppError;
 use crate::openapi::openapi_json;
 use crate::state::AppState;
 
+pub mod auth;
 pub mod checks;
 pub mod health;
 pub mod incidents;
@@ -31,8 +38,11 @@ pub fn router(state: AppState) -> Router {
         }
     };
 
-    let api = Router::new()
+    let api_v1 = Router::new()
         .route("/health", get(health::health))
+        .route("/auth/status", get(auth::status))
+        .route("/auth/login", axum::routing::post(auth::login))
+        .route("/auth/logout", axum::routing::post(auth::logout))
         .route("/openapi.json", get(openapi_json_route))
         .route("/monitors", get(monitors::list).post(monitors::create))
         .route(
@@ -69,14 +79,34 @@ pub fn router(state: AppState) -> Router {
             // Swagger UI routes are stateless; retype them so they can be
             // merged into the stateful API router (see axum `with_state` docs).
             .with_state(()),
-        );
+        )
+        // Unknown API paths must stay JSON, never fall through to the SPA.
+        .fallback(api_not_found);
 
-    Router::new()
+    let api = Router::new().nest("/v1", api_v1).fallback(api_not_found);
+    let static_dir = state.config.static_dir.clone();
+
+    let app = Router::new()
         .route("/health", get(health::health))
-        .nest("/api/v1", api)
+        .nest("/api", api)
         .layer(cors)
         .layer(TraceLayer::new_for_http())
-        .with_state(state)
+        .with_state(state);
+
+    match static_dir {
+        Some(dir) => {
+            let index = dir.join("index.html");
+            tracing::info!(dir = %dir.display(), "serving static frontend with SPA fallback");
+            // `fallback` (not `not_found_service`) keeps the served file's own
+            // 200 status: `not_found_service` would force every SPA route to 404.
+            app.fallback_service(ServeDir::new(dir).fallback(ServeFile::new(index)))
+        }
+        None => app,
+    }
+}
+
+async fn api_not_found() -> AppError {
+    AppError::NotFound("route not found".to_string())
 }
 
 async fn openapi_json_route() -> axum::Json<utoipa::openapi::OpenApi> {
@@ -86,8 +116,8 @@ async fn openapi_json_route() -> axum::Json<utoipa::openapi::OpenApi> {
 /// CORS restricted to the configured frontend origins (defaults cover the
 /// Vite dev server). Invalid origins are skipped; when none are valid the
 /// router sends no CORS headers, so browsers only allow same-origin calls.
-/// The API itself is unauthenticated and meant for local use — see README
-/// "Security considerations".
+/// Credentialed requests are allowed so the session cookie works when the
+/// frontend is served from a different configured origin.
 fn build_cors(origins: &[String]) -> CorsLayer {
     let mut layer = CorsLayer::new()
         .allow_methods([
@@ -97,7 +127,8 @@ fn build_cors(origins: &[String]) -> CorsLayer {
             Method::DELETE,
             Method::OPTIONS,
         ])
-        .allow_headers(Any);
+        .allow_headers([ACCEPT, AUTHORIZATION, CONTENT_TYPE])
+        .allow_credentials(true);
 
     let parsed: Vec<HeaderValue> = origins
         .iter()

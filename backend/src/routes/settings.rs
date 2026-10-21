@@ -3,6 +3,7 @@
 
 use axum::{extract::State, Json};
 
+use crate::auth::AdminSession;
 use crate::error::AppError;
 use crate::services::settings_service::{AppSettings, SettingsPatch, SettingsUpdateResponse};
 use crate::state::AppState;
@@ -30,14 +31,18 @@ pub async fn get(State(state): State<AppState>) -> Result<Json<AppSettings>, App
     put,
     path = "/api/v1/settings",
     tag = "settings",
+    security(("session_cookie" = [])),
     request_body = SettingsPatch,
     responses(
         (status = 200, description = "Updated settings plus restart-required keys", body = SettingsUpdateResponse),
+        (status = 401, description = "Authentication required", body = crate::error::ErrorResponse),
+        (status = 403, description = "Demo mode is read-only", body = crate::error::ErrorResponse),
         (status = 422, description = "Validation failed", body = crate::error::ErrorResponse),
     )
 )]
 pub async fn update(
     State(state): State<AppState>,
+    _session: AdminSession,
     Json(patch): Json<SettingsPatch>,
 ) -> Result<Json<SettingsUpdateResponse>, AppError> {
     let response = AppSettings::update(&state.pool, &state.config, patch).await?;

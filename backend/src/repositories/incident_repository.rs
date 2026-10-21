@@ -225,9 +225,9 @@ pub async fn window_incidents(
     pool: &sqlx::SqlitePool,
     start: DateTime<Utc>,
     end: DateTime<Utc>,
-) -> Result<Vec<(DateTime<Utc>, Option<DateTime<Utc>>)>, sqlx::Error> {
-    sqlx::query_as::<_, (DateTime<Utc>, Option<DateTime<Utc>>)>(
-        "SELECT started_at, resolved_at FROM incidents \
+) -> Result<Vec<(Uuid, DateTime<Utc>, Option<DateTime<Utc>>)>, sqlx::Error> {
+    sqlx::query_as::<_, (Uuid, DateTime<Utc>, Option<DateTime<Utc>>)>(
+        "SELECT monitor_id, started_at, resolved_at FROM incidents \
          WHERE started_at >= ? AND started_at < ? ORDER BY started_at",
     )
     .bind(start)

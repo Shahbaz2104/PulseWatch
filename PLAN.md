@@ -17,8 +17,13 @@
 **Stage 7 — Verification: DONE** (backend 80 + fmt/clippy clean; frontend lint/65 tests/build clean)
 **Stage 8 — README + delivery: DONE**
 **Status: DELIVERY COMPLETE** (+ post-delivery completeness pass: sorting, incident history, recent errors, overview window, theme preference, page-flow tests, retry backoff settings, incident monitor filter, windowed overview feeds)
+**Post-delivery — Phase 1 alerting: DONE (2026-10-21)** — webhook + email destinations, transactional outbox, retrying delivery worker, SMTP config, write-only destination privacy, frontend fields and SMTP warning.
+**Post-delivery — Phase 2 authentication: DONE (2026-10-21)** — Argon2id admin password, HMAC-signed HttpOnly session cookies, login/logout/status endpoints, `AdminSession` protection on all mutations, read-only demo mode, login page + header auth controls. See `docs/PORTFOLIO_PLAN.md` for the active roadmap.
+**Post-delivery — Phase 3 retention + paused-time: DONE (2026-10-21)** — `monitor_pauses` intervals, transactional pause/resume with silent incident resolution, in-flight check guard, window-clipped `paused_seconds`, downtime pause exclusion, configurable retention (90d default, 7–365), and a batched startup/6-hour cleanup worker.
+**Post-delivery — Phase 5 demo + deployment: DONE (2026-10-21)** — axum serves `STATIC_DIR` with SPA fallback while unknown `/api/*` paths stay JSON 404; demo mode seeds monitors/checks/incidents/one pause when empty (idempotent); full-stack multi-stage `Dockerfile` + one-service Compose with an optional Mailpit profile; frontend disables mutation controls in demo mode; `fly.toml` for the read-only Fly demo.
+**Post-delivery — Phase 4 performance polish: DONE (2026-10-21)** — every route/lazy page is a separate chunk behind an accessible Suspense fallback; React, UI, motion, query, and initial-vendor groups split the entry bundle; `import.meta.dirname` replaces `__dirname`; build is warning-free. The app entry chunk fell from 1.43 MB to 31.56 kB (shared vendor chunks load alongside), with charts (386 kB) and the first-visit Three.js boot orb (736 kB, 187 kB gzip) loaded only on demand.
 
-Last verified: backend `cargo test` → **80 passed**; frontend `npm test` → **65 passed**; `npm run build` green. E2E screenshots in `/tmp/opencode/pulsewatch-shots/`.
+Last verified: backend `cargo test` → **110 passed** (52 unit + 58 integration, including static/SPA-fallback and demo-seed suites); frontend `npm test` → **77 passed**; fmt/clippy `-D warnings`, `oxlint`, and `npm run build` green; browser smoke-tested `/`, `/monitors`, `/reports`, `/settings`, and `/login` with every lazy chunk resolving. E2E screenshots in `/tmp/opencode/pulsewatch-shots/` are stale until Phase 6.
 
 ---
 
@@ -81,7 +86,7 @@ Do **not** try to switch back to `utoipa-swagger-ui` until upstream ships a rele
 unknown ──fail(≥failure_threshold)──► down  [opens incident, transactionally]
 up ──fail(≥failure_threshold)───────► down  [opens incident if none active]
 down ──success(≥success_threshold)──► up    [resolves active incident]
-any ──pause───────────────────────► paused  [no checks; never reported as up]
+any ──pause───────────────────────► paused  [records interval; resolves incident silently]
 ```
 - Extra columns `consecutive_failures` / `consecutive_successes` on `monitors` (updated in same tx as check result). Already in schema.
 - Partial unique index `idx_incidents_one_open ON incidents(monitor_id) WHERE resolved_at IS NULL` prevents duplicate open incidents. Already in schema.
@@ -89,7 +94,7 @@ any ──pause─────────────────────�
 - UI derives amber "degraded" = `up` with `consecutive_failures > 0` (field `degraded` already on `MonitorSummary`).
 
 ### Metrics (Stage 5 — implemented + tested)
-- Uptime = successful / eligible checks × 100 in window; **null (not 100%) when 0 samples**; check-based, not point-in-time. Paused periods NOT excluded (v1 documented limitation — no pause-history table).
+- Uptime = successful / eligible checks × 100 in window; **null (not 100%) when 0 samples**; check-based, not point-in-time. Paused time is reported separately (`paused_seconds`) and excluded from downtime, not added to uptime.
 - Latency: avg/median/p95 computed ONLY over **successful** checks with non-null `response_time_ms`; failures never contribute (never counted as 0). Median/p95 = exact **nearest-rank** via SQL `ORDER BY response_time_ms LIMIT 1 OFFSET k` (`k = (n-1)/2` and `ceil(p·n)-1`); `null` when fewer than 2 samples.
 - Downtime: `resolved_at − started_at`, else `now − started_at` (open); counts only incidents that **started** inside the window; one open incident max per monitor is guaranteed by the partial unique index.
 - Windows: `24h | 7d | 30d | custom` via `ReportWindow::from_query` (RFC3339 `from`/`to`, inversion + format validated → 422).
@@ -115,6 +120,7 @@ PulseWatch -- Website Uptime Monitor/
 │   ├── src/
 │   │   ├── lib.rs                # library root (shared by bin + integration tests)
 │   │   ├── main.rs               # bootstrap, tracing, safe HTTP client, graceful shutdown
+│   │   ├── auth.rs               # Argon2id verify, HMAC session tokens, AdminSession
 │   │   ├── config.rs             # Config::from_env, validated bounds
 │   │   ├── db.rs                 # SQLite pool (WAL, FK on), auto-migrate
 │   │   ├── error.rs              # AppError → consistent JSON envelope
@@ -137,6 +143,7 @@ PulseWatch -- Website Uptime Monitor/
 │   │   │   └── incident_repository.rs # find_open / open / resolve_open, list_with_monitor, window_incidents, recent, find_with_monitor
 │   │   ├── routes/
 │   │   │   ├── mod.rs            # router, CORS, TraceLayer, swagger-ui-dist
+│   │   │   ├── auth.rs           # login/logout/status + cookie issuance
 │   │   │   ├── health.rs         # GET /health + /api/v1/health
 │   │   │   ├── monitors.rs       # CRUD + check/pause/resume + pagination
 │   │   │   ├── checks.rs         # history (paginated + result filter), latest, summary
@@ -149,6 +156,7 @@ PulseWatch -- Website Uptime Monitor/
 │       ├── common/mod.rs         # TestApp harness (temp DB, wiremock-friendly config)
 │       ├── monitors_api.rs       # 12 integration tests
 │       ├── reports_api.rs        # 11 integration tests (hand-computed metric assertions)
+│       ├── auth_api.rs           # 6 auth/demo integration tests
 │       └── scheduler.rs          # 4 scheduler integration tests
 └── frontend/                     # empty (scaffolded in Stage 6)
 ```

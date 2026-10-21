@@ -12,6 +12,7 @@ use serde::Serialize;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use crate::auth::AdminSession;
 use crate::config::{
     MAX_CHECK_INTERVAL_SECS, MAX_RETRY_ATTEMPTS, MAX_TIMEOUT_MS, MIN_CHECK_INTERVAL_SECS,
     MIN_RETRY_ATTEMPTS, MIN_TIMEOUT_MS,
@@ -23,6 +24,7 @@ use crate::models::monitor::{
 };
 use crate::models::ReportWindow;
 use crate::repositories::monitor_repository;
+use crate::services::lifecycle_service;
 use crate::services::monitoring_service::{self, CheckTrigger};
 use crate::services::settings_service::AppSettings;
 use crate::state::AppState;
@@ -127,14 +129,18 @@ pub async fn get(
     post,
     path = "/api/v1/monitors",
     tag = "monitors",
+    security(("session_cookie" = [])),
     request_body = CreateMonitorRequest,
     responses(
         (status = 201, description = "Monitor created", body = MonitorSummary),
+        (status = 401, description = "Authentication required", body = crate::error::ErrorResponse),
+        (status = 403, description = "Demo mode is read-only", body = crate::error::ErrorResponse),
         (status = 422, description = "Validation failed", body = crate::error::ErrorResponse),
     )
 )]
 pub async fn create(
     State(state): State<AppState>,
+    _session: AdminSession,
     Json(request): Json<CreateMonitorRequest>,
 ) -> Result<(StatusCode, Json<MonitorSummary>), AppError> {
     let defaults = AppSettings::load(&state.pool, &state.config)
@@ -156,6 +162,8 @@ pub async fn create(
         &defaults,
     )?;
     let name = normalize_name(request.name.as_deref(), &request.url)?;
+    let alert_webhook_url = normalize_alert_webhook(request.alert_webhook_url.as_deref(), &state)?;
+    let alert_email = normalize_alert_email(request.alert_email.as_deref())?;
 
     let now = Utc::now();
     let monitor = Monitor {
@@ -170,6 +178,8 @@ pub async fn create(
         consecutive_failures_threshold: fields.consecutive_failures_threshold,
         consecutive_successes_threshold: fields.consecutive_successes_threshold,
         retry_max_attempts: fields.retry_max_attempts,
+        alert_webhook_url,
+        alert_email,
         current_status: crate::models::monitor::MonitorStatus::Unknown,
         consecutive_failures: 0,
         consecutive_successes: 0,
@@ -192,10 +202,13 @@ pub async fn create(
     put,
     path = "/api/v1/monitors/{id}",
     tag = "monitors",
+    security(("session_cookie" = [])),
     params(("id" = Uuid, Path, description = "Monitor id")),
     request_body = UpdateMonitorRequest,
     responses(
         (status = 200, description = "Monitor updated", body = MonitorSummary),
+        (status = 401, description = "Authentication required", body = crate::error::ErrorResponse),
+        (status = 403, description = "Demo mode is read-only", body = crate::error::ErrorResponse),
         (status = 404, description = "Monitor not found", body = crate::error::ErrorResponse),
         (status = 422, description = "Validation failed", body = crate::error::ErrorResponse),
     )
@@ -203,6 +216,7 @@ pub async fn create(
 pub async fn update(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    _session: AdminSession,
     Json(request): Json<UpdateMonitorRequest>,
 ) -> Result<Json<MonitorSummary>, AppError> {
     let mut monitor = find_monitor(&state, id).await?;
@@ -236,6 +250,12 @@ pub async fn update(
     monitor.consecutive_failures_threshold = fields.consecutive_failures_threshold;
     monitor.consecutive_successes_threshold = fields.consecutive_successes_threshold;
     monitor.retry_max_attempts = fields.retry_max_attempts;
+    if let Some(raw) = request.alert_webhook_url.as_deref() {
+        monitor.alert_webhook_url = normalize_alert_webhook(Some(raw), &state)?;
+    }
+    if let Some(raw) = request.alert_email.as_deref() {
+        monitor.alert_email = normalize_alert_email(Some(raw))?;
+    }
     monitor.updated_at = Utc::now();
 
     if !monitor_repository::update(&state.pool, &monitor).await? {
@@ -252,15 +272,19 @@ pub async fn update(
     delete,
     path = "/api/v1/monitors/{id}",
     tag = "monitors",
+    security(("session_cookie" = [])),
     params(("id" = Uuid, Path, description = "Monitor id")),
     responses(
         (status = 204, description = "Deleted"),
+        (status = 401, description = "Authentication required", body = crate::error::ErrorResponse),
+        (status = 403, description = "Demo mode is read-only", body = crate::error::ErrorResponse),
         (status = 404, description = "Monitor not found", body = crate::error::ErrorResponse),
     )
 )]
 pub async fn delete(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    _session: AdminSession,
 ) -> Result<StatusCode, AppError> {
     if !monitor_repository::delete(&state.pool, id).await? {
         return Err(AppError::NotFound("monitor not found".to_string()));
@@ -275,9 +299,12 @@ pub async fn delete(
     post,
     path = "/api/v1/monitors/{id}/check",
     tag = "monitors",
+    security(("session_cookie" = [])),
     params(("id" = Uuid, Path, description = "Monitor id")),
     responses(
         (status = 200, description = "Check completed", body = CheckResponse),
+        (status = 401, description = "Authentication required", body = crate::error::ErrorResponse),
+        (status = 403, description = "Demo mode is read-only", body = crate::error::ErrorResponse),
         (status = 404, description = "Monitor not found", body = crate::error::ErrorResponse),
         (status = 409, description = "Monitor paused or a check is already running", body = crate::error::ErrorResponse),
     )
@@ -285,6 +312,7 @@ pub async fn delete(
 pub async fn check_now(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    _session: AdminSession,
 ) -> Result<Json<CheckResponse>, AppError> {
     let outcome = monitoring_service::run_check(&state, id, CheckTrigger::Manual).await?;
     Ok(Json(CheckResponse {
@@ -301,23 +329,28 @@ pub async fn check_now(
     post,
     path = "/api/v1/monitors/{id}/pause",
     tag = "monitors",
+    security(("session_cookie" = [])),
     params(("id" = Uuid, Path, description = "Monitor id")),
     responses(
         (status = 200, description = "Monitor paused", body = MonitorSummary),
+        (status = 401, description = "Authentication required", body = crate::error::ErrorResponse),
+        (status = 403, description = "Demo mode is read-only", body = crate::error::ErrorResponse),
         (status = 404, description = "Monitor not found", body = crate::error::ErrorResponse),
     )
 )]
 pub async fn pause(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    _session: AdminSession,
 ) -> Result<Json<MonitorSummary>, AppError> {
-    if !monitor_repository::pause(&state.pool, id, Utc::now()).await? {
-        return Err(AppError::NotFound("monitor not found".to_string()));
-    }
-    let monitor = find_monitor(&state, id).await?;
-    tracing::info!(monitor_id = %id, "monitor paused");
+    let outcome = lifecycle_service::pause_monitor(&state, id).await?;
+    tracing::info!(
+        monitor_id = %id,
+        resolved_incident_id = ?outcome.resolved_incident_id,
+        "monitor paused"
+    );
     let window = ReportWindow::from_query(Some("24h"), None, None)?;
-    let summary = summarize(&state, monitor, window).await?;
+    let summary = summarize(&state, outcome.monitor, window).await?;
     Ok(Json(summary))
 }
 
@@ -327,27 +360,28 @@ pub async fn pause(
     post,
     path = "/api/v1/monitors/{id}/resume",
     tag = "monitors",
+    security(("session_cookie" = [])),
     params(("id" = Uuid, Path, description = "Monitor id")),
     responses(
         (status = 200, description = "Monitor resumed", body = MonitorSummary),
+        (status = 401, description = "Authentication required", body = crate::error::ErrorResponse),
+        (status = 403, description = "Demo mode is read-only", body = crate::error::ErrorResponse),
         (status = 404, description = "Monitor not found", body = crate::error::ErrorResponse),
     )
 )]
 pub async fn resume(
     State(state): State<AppState>,
     Path(id): Path<Uuid>,
+    _session: AdminSession,
 ) -> Result<Json<MonitorSummary>, AppError> {
-    let monitor = find_monitor(&state, id).await?;
-    if !monitor.enabled {
-        let now = Utc::now();
-        if !monitor_repository::resume(&state.pool, id, now, now).await? {
-            return Err(AppError::NotFound("monitor not found".to_string()));
-        }
-    }
-    let monitor = find_monitor(&state, id).await?;
-    tracing::info!(monitor_id = %id, "monitor resumed");
+    let outcome = lifecycle_service::resume_monitor(&state, id).await?;
+    tracing::info!(
+        monitor_id = %id,
+        closed_interval = outcome.closed_interval,
+        "monitor resumed"
+    );
     let window = ReportWindow::from_query(Some("24h"), None, None)?;
-    let summary = summarize(&state, monitor, window).await?;
+    let summary = summarize(&state, outcome.monitor, window).await?;
     Ok(Json(summary))
 }
 
@@ -522,6 +556,50 @@ fn effective(
         });
     }
     value
+}
+
+/// Validate and normalize an optional alert webhook. An empty string clears
+/// the destination; the same SSRF policy as monitor targets applies.
+fn normalize_alert_webhook(
+    raw: Option<&str>,
+    state: &AppState,
+) -> Result<Option<String>, AppError> {
+    let Some(value) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    let parsed = validate_monitor_url(value, &SsrfPolicy::from_config(&state.config))
+        .map_err(|err| AppError::validation("alert_webhook_url", err.to_string()))?;
+    Ok(Some(parsed.to_string()))
+}
+
+/// Basic email validation: one non-empty local/domain part, no whitespace, and
+/// a dotted domain. The SMTP server remains the final authority.
+fn normalize_alert_email(raw: Option<&str>) -> Result<Option<String>, AppError> {
+    let Some(value) = raw.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+    if value.len() > 254 || value.chars().any(char::is_whitespace) {
+        return Err(AppError::validation(
+            "alert_email",
+            "must be a valid email address",
+        ));
+    }
+    let mut parts = value.split('@');
+    let local = parts.next().unwrap_or_default();
+    let domain = parts.next().unwrap_or_default();
+    if local.is_empty()
+        || domain.is_empty()
+        || parts.next().is_some()
+        || !domain.contains('.')
+        || domain.starts_with('.')
+        || domain.ends_with('.')
+    {
+        return Err(AppError::validation(
+            "alert_email",
+            "must be a valid email address",
+        ));
+    }
+    Ok(Some(value.to_string()))
 }
 
 fn normalize_name(name: Option<&str>, url: &str) -> Result<String, AppError> {

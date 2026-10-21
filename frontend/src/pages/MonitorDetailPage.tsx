@@ -40,6 +40,8 @@ import {
   useCheckNow,
   useCheckSummary,
   useChecks,
+  useDemoMode,
+  useHealth,
   useIncidents,
   useMonitor,
   usePauseMonitor,
@@ -59,6 +61,9 @@ import type { WindowQuery } from "@/types/api";
 type SummaryWindow = Extract<WindowQuery["window"], "24h" | "7d" | "30d">;
 
 function ConfigPanel({ monitor }: { monitor: NonNullable<ReturnType<typeof useMonitor>["data"]> }) {
+  const health = useHealth();
+  const emailUnavailable =
+    monitor.alert_email_configured && health.data?.email_configured === false;
   const rows: Array<[string, string]> = [
     ["Interval", `${monitor.check_interval_seconds}s`],
     ["Timeout", `${monitor.timeout_ms} ms`],
@@ -66,6 +71,8 @@ function ConfigPanel({ monitor }: { monitor: NonNullable<ReturnType<typeof useMo
     ["Expected status", `${monitor.expected_status_min}–${monitor.expected_status_max}`],
     ["Down after", `${monitor.consecutive_failures_threshold} failed`],
     ["Up after", `${monitor.consecutive_successes_threshold} succeeded`],
+    ["Webhook alerts", monitor.alert_webhook_configured ? "Configured" : "Off"],
+    ["Email alerts", monitor.alert_email_configured ? "Configured" : "Off"],
     ["Created", formatClock(monitor.created_at)],
   ];
   return (
@@ -85,12 +92,19 @@ function ConfigPanel({ monitor }: { monitor: NonNullable<ReturnType<typeof useMo
             </div>
           ))}
         </dl>
+        {emailUnavailable ? (
+          <p className="mt-3 text-xs text-amber-600 dark:text-amber-400">
+            Email alerts are configured, but SMTP is not available on this server. Deliveries will
+            fail until SMTP_HOST and SMTP_FROM are set.
+          </p>
+        ) : null}
       </CardContent>
     </Card>
   );
 }
 
 export function MonitorDetailPage() {
+  const demoMode = useDemoMode();
   const { monitorId = "" } = useParams();
   const [summaryWindow] = useState<SummaryWindow>("24h");
   const [resultFilter, setResultFilter] = useState<"all" | "success" | "failure">("all");
@@ -189,7 +203,13 @@ export function MonitorDetailPage() {
           <p className="text-muted-foreground mt-1 font-mono text-sm break-all">{monitor.url}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setEditOpen(true)}
+            disabled={demoMode}
+            title={demoMode ? "Read-only demo: changes are blocked" : undefined}
+          >
             <Pencil /> Edit
           </Button>
           {paused ? (
@@ -201,7 +221,7 @@ export function MonitorDetailPage() {
                   onError: reportError,
                 })
               }
-              disabled={actionPending}
+              disabled={actionPending || demoMode}
             >
               {resume.isPending ? <Loader2 className="size-4 animate-spin" /> : <Play />}
               Resume
@@ -216,7 +236,7 @@ export function MonitorDetailPage() {
                   onError: reportError,
                 })
               }
-              disabled={actionPending}
+              disabled={actionPending || demoMode}
             >
               {pause.isPending ? <Loader2 className="size-4 animate-spin" /> : <Pause />}
               Pause
@@ -235,7 +255,7 @@ export function MonitorDetailPage() {
                 onError: reportError,
               })
             }
-            disabled={paused || actionPending}
+            disabled={paused || actionPending || demoMode}
           >
             {checkNow.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 />}
             Check now

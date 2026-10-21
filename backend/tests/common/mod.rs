@@ -6,15 +6,17 @@
 // one suite would otherwise trip dead-code lints in the others.
 #![allow(dead_code)]
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use axum::{
     body::Body,
-    http::{Request, StatusCode},
+    http::{header::COOKIE, HeaderMap, HeaderValue, Request, StatusCode},
     Router,
 };
 use pulsewatch_backend::{
-    config::Config,
+    auth::{issue_session, SESSION_COOKIE},
+    config::{AuthConfig, Config},
     db, routes,
     state::{AppState, InFlightSet},
     validation::build_safe_http_client,
@@ -25,9 +27,15 @@ use tokio::sync::Semaphore;
 use tokio_util::sync::CancellationToken;
 use tower::ServiceExt;
 
+pub const TEST_ADMIN_PASSWORD: &str = "test-password";
+pub const TEST_ADMIN_HASH: &str = "$argon2id$v=19$m=19456,t=2,p=1$EeXitryqiZtfPq+UAMZH1w$gNjv7ZQsQQjXqNSWo04WrFoLy2PmcjhXk1IXqNc0dwE";
+pub const TEST_SESSION_SECRET: &str = "test-session-secret-at-least-32-bytes";
+
 pub struct TestApp {
     pub state: AppState,
     pub router: Router,
+    /// Cookie value for the signed-in admin; `None` in demo mode.
+    pub session_cookie: Option<String>,
     /// Kept alive for the lifetime of the test so the temp DB is not deleted.
     _dir: TempDir,
 }
@@ -36,6 +44,24 @@ impl TestApp {
     /// Builds a fully wired app against a fresh temporary database.
     /// `allow_private_targets` must be `true` for wiremock (loopback) targets.
     pub async fn new(allow_private_targets: bool) -> Self {
+        Self::build(allow_private_targets, false, None).await
+    }
+
+    /// Demo mode: auth disabled, every mutation answered with 403.
+    pub async fn demo(allow_private_targets: bool) -> Self {
+        Self::build(allow_private_targets, true, None).await
+    }
+
+    /// App with a built-frontend directory served with SPA fallback.
+    pub async fn with_static(allow_private_targets: bool, static_dir: PathBuf) -> Self {
+        Self::build(allow_private_targets, false, Some(static_dir)).await
+    }
+
+    async fn build(
+        allow_private_targets: bool,
+        demo_mode: bool,
+        static_dir: Option<PathBuf>,
+    ) -> Self {
         // Best-effort tracing so server-side failures surface in test output.
         static TRACING: std::sync::Once = std::sync::Once::new();
         TRACING.call_once(|| {
@@ -58,9 +84,19 @@ impl TestApp {
             default_retry_backoff_ms: 20,
             default_retry_backoff_max_ms: 50,
             max_concurrent_checks: 8,
+            check_retention_days: 90,
             allow_private_targets,
             allowed_origins: vec!["http://localhost:5173".to_string()],
+            smtp: None,
+            demo_mode,
+            static_dir,
+            auth: (!demo_mode).then(|| AuthConfig {
+                password_hash: TEST_ADMIN_HASH.to_string(),
+                session_secret: TEST_SESSION_SECRET.to_string(),
+                cookie_secure: false,
+            }),
         });
+        let session_cookie = issue_session(&config);
 
         let http_client = build_safe_http_client(&config).expect("build safe http client");
         let state = AppState {
@@ -75,15 +111,56 @@ impl TestApp {
         TestApp {
             state,
             router,
+            session_cookie,
             _dir: dir,
         }
     }
 
-    /// Sends a request and returns `(status, parsed JSON body)` (`Value::Null`
-    /// for empty bodies such as 204).
+    fn with_session(&self, mut req: Request<Body>) -> Request<Body> {
+        if let Some(token) = &self.session_cookie {
+            let cookie = format!("{SESSION_COOKIE}={token}");
+            req.headers_mut().insert(
+                COOKIE,
+                HeaderValue::from_str(&cookie).expect("cookie header"),
+            );
+        }
+        req
+    }
+
+    /// Sends a request as the signed-in admin and returns `(status, parsed
+    /// JSON body)` (`Value::Null` for empty bodies such as 204).
     pub async fn request_json(&self, req: Request<Body>) -> (StatusCode, Value) {
+        let (status, _, value) = self.send_json(self.with_session(req)).await;
+        (status, value)
+    }
+
+    /// Sends a request without a session cookie.
+    pub async fn request_json_anon(&self, req: Request<Body>) -> (StatusCode, Value) {
+        let (status, _, value) = self.send_json(req).await;
+        (status, value)
+    }
+
+    /// Sends a request as the signed-in admin, exposing response headers (used
+    /// for `Set-Cookie` assertions).
+    pub async fn request_json_with_headers(
+        &self,
+        req: Request<Body>,
+    ) -> (StatusCode, HeaderMap, Value) {
+        self.send_json(self.with_session(req)).await
+    }
+
+    /// Sends a request without a session cookie, exposing response headers.
+    pub async fn request_json_anon_with_headers(
+        &self,
+        req: Request<Body>,
+    ) -> (StatusCode, HeaderMap, Value) {
+        self.send_json(req).await
+    }
+
+    async fn send_json(&self, req: Request<Body>) -> (StatusCode, HeaderMap, Value) {
         let response = self.router.clone().oneshot(req).await.expect("router call");
         let status = response.status();
+        let headers = response.headers().clone();
         let bytes = axum::body::to_bytes(response.into_body(), usize::MAX)
             .await
             .expect("read body");
@@ -92,10 +169,20 @@ impl TestApp {
         } else {
             serde_json::from_slice(&bytes).expect("JSON body")
         };
-        (status, value)
+        (status, headers, value)
     }
 
     pub async fn request(&self, req: Request<Body>) -> StatusCode {
+        let response = self
+            .router
+            .clone()
+            .oneshot(self.with_session(req))
+            .await
+            .expect("router call");
+        response.status()
+    }
+
+    pub async fn request_anon(&self, req: Request<Body>) -> StatusCode {
         let response = self.router.clone().oneshot(req).await.expect("router call");
         response.status()
     }

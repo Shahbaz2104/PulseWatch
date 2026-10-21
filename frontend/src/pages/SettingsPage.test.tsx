@@ -28,6 +28,7 @@ const SETTINGS: AppSettings = {
   default_expected_status_min: 200,
   default_expected_status_max: 399,
   max_concurrent_checks: 16,
+  check_retention_days: 90,
 };
 
 beforeEach(() => {
@@ -49,6 +50,7 @@ describe("SettingsPage", () => {
     expect(screen.getByLabelText("Initial retry backoff (ms)")).toHaveValue(500);
     expect(screen.getByLabelText("Max retry backoff (ms)")).toHaveValue(10000);
     expect(screen.getByLabelText("Max concurrent checks")).toHaveValue(16);
+    expect(screen.getByLabelText("Check retention (days)")).toHaveValue(90);
   });
 
   it("switches the theme preference", async () => {

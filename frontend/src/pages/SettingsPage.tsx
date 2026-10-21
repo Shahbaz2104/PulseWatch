@@ -73,6 +73,11 @@ const settingsSchema = z
       .int("Must be a whole number")
       .min(1, "At least 1 concurrent check")
       .max(200, "At most 200 concurrent checks"),
+    check_retention_days: z.coerce
+      .number()
+      .int("Must be a whole number of days")
+      .min(7, "Keep at least 7 days")
+      .max(365, "Keep at most 365 days"),
   })
   .refine((v) => v.default_retry_backoff_max_ms >= v.default_retry_backoff_ms, {
     message: "Maximum backoff must be ≥ initial backoff",
@@ -94,6 +99,7 @@ const DEFAULTS: SettingsFormValues = {
   default_expected_status_min: 200,
   default_expected_status_max: 399,
   max_concurrent_checks: 8,
+  check_retention_days: 90,
 };
 
 const THEME_OPTIONS = [
@@ -134,6 +140,7 @@ export function SettingsPage() {
       default_expected_status_min: data.default_expected_status_min,
       default_expected_status_max: data.default_expected_status_max,
       max_concurrent_checks: data.max_concurrent_checks,
+      check_retention_days: data.check_retention_days,
     });
   }, [settingsQuery.data]);
 
@@ -144,7 +151,7 @@ export function SettingsPage() {
           description:
             data.restart_required.length > 0
               ? "Max concurrent checks takes effect after a backend restart."
-              : "New monitors will use these defaults immediately.",
+              : "New monitors use these defaults; retention applies on the next cleanup pass.",
         });
       },
       onError: (error) => {
@@ -187,7 +194,7 @@ export function SettingsPage() {
     <>
       <PageHeader
         title="Settings"
-        description="Defaults applied to newly created monitors. Existing monitors keep their own overrides."
+        description="Defaults for new monitors, scheduler concurrency, and check-history retention."
       />
 
       <Alert className="mb-6">
@@ -203,7 +210,8 @@ export function SettingsPage() {
         <CardHeader>
           <CardTitle>Check defaults</CardTitle>
           <CardDescription>
-            Inherited by monitors at creation; edit a monitor to override per-URL.
+            Inherited by monitors at creation; edit a monitor to override per-URL. Retention
+            applies globally.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -290,6 +298,22 @@ export function SettingsPage() {
                         <Input type="number" inputMode="numeric" className="font-mono" {...field} />
                       </FormControl>
                       <FormDescription>1 – 200 · restart required</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="check_retention_days"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Check retention (days)</FormLabel>
+                      <FormControl>
+                        <Input type="number" inputMode="numeric" className="font-mono" {...field} />
+                      </FormControl>
+                      <FormDescription>
+                        Older checks are purged every 6 hours · 7 – 365
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

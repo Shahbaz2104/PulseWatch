@@ -1,20 +1,45 @@
 name: pulsewatch
 services:
-  api:
+  pulsewatch:
     build:
       context: .
-      dockerfile: backend.Dockerfile
+      dockerfile: Dockerfile
     ports:
       - "3000:3000"
     environment:
       HOST: 0.0.0.0
       PORT: "3000"
       DATABASE_URL: sqlite:////data/pulsewatch.db
+      STATIC_DIR: /app/static
       RUST_LOG: info,pulsewatch_backend=info
-      # CORS for a locally served frontend; tighten for production.
-      ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      # Same-origin by default; set to your public origin(s) when embedding
+      # the API elsewhere. Tighten for production.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:3000}
+      # Required unless DEMO_MODE=true (see .env.example). The backend refuses
+      # to start without them in normal mode.
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      SESSION_SECRET: ${SESSION_SECRET:-}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      DEMO_MODE: ${DEMO_MODE:-false}
+      CHECK_RETENTION_DAYS: ${CHECK_RETENTION_DAYS:-90}
+      # Optional email alerts. `docker compose --profile mailpit up` starts a
+      # local catcher, then set SMTP_HOST=mailpit SMTP_PORT=1025 below.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_TLS: ${SMTP_TLS:-}
     volumes:
       - pulsewatch-data:/data
+    restart: unless-stopped
+
+  # Local SMTP catcher for trying email alerts. Inbox UI: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.21
+    profiles: ["mailpit"]
+    ports:
+      - "8025:8025"
     restart: unless-stopped
 
 volumes:

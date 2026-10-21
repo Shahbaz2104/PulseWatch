@@ -14,21 +14,22 @@ use crate::models::monitor::{ListMonitorsQuery, Monitor};
 const INSERT_SQL: &str = "INSERT INTO monitors (id, name, url, enabled, check_interval_seconds, \
 timeout_ms, expected_status_min, expected_status_max, consecutive_failures_threshold, \
 consecutive_successes_threshold, retry_max_attempts, current_status, consecutive_failures, \
-consecutive_successes, created_at, updated_at, last_checked_at, next_check_at) \
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+consecutive_successes, alert_webhook_url, alert_email, created_at, updated_at, \
+last_checked_at, next_check_at) \
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
 const SELECT_COLUMNS: &str = "id, name, url, enabled, check_interval_seconds, timeout_ms, \
 expected_status_min, expected_status_max, consecutive_failures_threshold, \
-consecutive_successes_threshold, retry_max_attempts, current_status, \
-consecutive_failures, consecutive_successes, created_at, updated_at, \
-last_checked_at, next_check_at";
+consecutive_successes_threshold, retry_max_attempts, alert_webhook_url, \
+alert_email, current_status, consecutive_failures, consecutive_successes, \
+created_at, updated_at, last_checked_at, next_check_at";
 
 const SELECT_BY_ID_SQL: &str =
     "SELECT id, name, url, enabled, check_interval_seconds, timeout_ms, \
 expected_status_min, expected_status_max, consecutive_failures_threshold, \
-consecutive_successes_threshold, retry_max_attempts, current_status, \
-consecutive_failures, consecutive_successes, created_at, updated_at, \
-last_checked_at, next_check_at FROM monitors WHERE id = ?";
+consecutive_successes_threshold, retry_max_attempts, alert_webhook_url, \
+alert_email, current_status, consecutive_failures, consecutive_successes, \
+created_at, updated_at, last_checked_at, next_check_at FROM monitors WHERE id = ?";
 
 pub async fn insert<'c, E>(executor: E, monitor: &Monitor) -> Result<(), sqlx::Error>
 where
@@ -49,6 +50,8 @@ where
         .bind(monitor.current_status)
         .bind(monitor.consecutive_failures)
         .bind(monitor.consecutive_successes)
+        .bind(&monitor.alert_webhook_url)
+        .bind(&monitor.alert_email)
         .bind(monitor.created_at)
         .bind(monitor.updated_at)
         .bind(monitor.last_checked_at)
@@ -76,7 +79,8 @@ where
     let result = sqlx::query(
         "UPDATE monitors SET name = ?, url = ?, check_interval_seconds = ?, timeout_ms = ?, \
          expected_status_min = ?, expected_status_max = ?, consecutive_failures_threshold = ?, \
-         consecutive_successes_threshold = ?, retry_max_attempts = ?, updated_at = ? \
+         consecutive_successes_threshold = ?, retry_max_attempts = ?, \
+         alert_webhook_url = ?, alert_email = ?, updated_at = ? \
          WHERE id = ?",
     )
     .bind(&monitor.name)
@@ -88,6 +92,8 @@ where
     .bind(monitor.consecutive_failures_threshold)
     .bind(monitor.consecutive_successes_threshold)
     .bind(monitor.retry_max_attempts)
+    .bind(&monitor.alert_webhook_url)
+    .bind(&monitor.alert_email)
     .bind(monitor.updated_at)
     .bind(monitor.id)
     .execute(executor)
@@ -113,7 +119,7 @@ where
 {
     let result = sqlx::query(
         "UPDATE monitors SET enabled = 0, current_status = 'paused', next_check_at = NULL, \
-         updated_at = ? WHERE id = ?",
+         updated_at = ? WHERE id = ? AND enabled = 1",
     )
     .bind(now)
     .bind(id)
@@ -135,7 +141,8 @@ where
 {
     let result = sqlx::query(
         "UPDATE monitors SET enabled = 1, current_status = 'unknown', consecutive_failures = 0, \
-         consecutive_successes = 0, next_check_at = ?, updated_at = ? WHERE id = ?",
+         consecutive_successes = 0, next_check_at = ?, updated_at = ? \
+         WHERE id = ? AND enabled = 0",
     )
     .bind(next_check_at)
     .bind(now)
@@ -458,9 +465,9 @@ pub async fn status_counts(pool: &sqlx::SqlitePool) -> Result<Vec<(String, i64)>
 
 const SELECT_ALL_SQL: &str = "SELECT id, name, url, enabled, check_interval_seconds, timeout_ms, \
 expected_status_min, expected_status_max, consecutive_failures_threshold, \
-consecutive_successes_threshold, retry_max_attempts, current_status, consecutive_failures, \
-consecutive_successes, created_at, updated_at, last_checked_at, next_check_at \
-FROM monitors ORDER BY name, id";
+consecutive_successes_threshold, retry_max_attempts, alert_webhook_url, alert_email, \
+current_status, consecutive_failures, consecutive_successes, created_at, updated_at, \
+last_checked_at, next_check_at FROM monitors ORDER BY name, id";
 
 /// All monitors (ascending name), for report aggregation.
 pub async fn find_all(pool: &sqlx::SqlitePool) -> Result<Vec<Monitor>, sqlx::Error> {

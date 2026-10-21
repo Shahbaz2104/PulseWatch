@@ -3,10 +3,15 @@ name = "pulsewatch-backend"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+default-run = "pulsewatch"
 
 [[bin]]
 name = "pulsewatch"
 path = "src/main.rs"
+
+[[bin]]
+name = "hash-password"
+path = "src/bin/hash_password.rs"
 
 [dependencies]
 axum.workspace = true
@@ -27,6 +32,12 @@ swagger-ui-dist.workspace = true
 dotenvy.workspace = true
 rand.workspace = true
 url.workspace = true
+lettre.workspace = true
+async-trait.workspace = true
+argon2.workspace = true
+hmac.workspace = true
+sha2.workspace = true
+base64.workspace = true
 
 [dev-dependencies]
 wiremock.workspace = true

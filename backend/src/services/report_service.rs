@@ -19,7 +19,10 @@ use crate::models::reports::{
     OverviewReport, RecentCheck, ResponseTimeReport, TimeBucket, UptimeReport,
 };
 use crate::models::ReportWindow;
-use crate::repositories::{check_repository, incident_repository, monitor_repository};
+use crate::repositories::pause_repository::PauseInterval;
+use crate::repositories::{
+    check_repository, incident_repository, monitor_repository, pause_repository,
+};
 use crate::state::AppState;
 
 /// 0-based offset of the nearest-rank percentile `p` (0 < p <= 1) over `n`
@@ -68,15 +71,92 @@ fn to_time_buckets(
         .collect()
 }
 
-/// Downtime totals for incidents started inside the window.
+/// Overlap in whole seconds between two half-open intervals.
+fn overlap_seconds(
+    a_start: DateTime<Utc>,
+    a_end: DateTime<Utc>,
+    b_start: DateTime<Utc>,
+    b_end: DateTime<Utc>,
+) -> i64 {
+    let start = if a_start > b_start { a_start } else { b_start };
+    let end = if a_end < b_end { a_end } else { b_end };
+    if end > start {
+        (end - start).num_seconds().max(0)
+    } else {
+        0
+    }
+}
+
+/// Sum paused time for one monitor (or all monitors) inside `[start, end)`.
+/// Open intervals are measured to `now`; every interval is clipped to the
+/// window so a pause spanning its boundary only contributes the overlap.
+pub fn paused_seconds_in_window(
+    pauses: &[PauseInterval],
+    monitor_id: Option<Uuid>,
+    start: DateTime<Utc>,
+    end: DateTime<Utc>,
+    now: DateTime<Utc>,
+) -> i64 {
+    let mut total = 0i64;
+    for pause in pauses {
+        if monitor_id.is_some_and(|id| id != pause.monitor_id) {
+            continue;
+        }
+        let interval_end = pause.resumed_at.unwrap_or(now);
+        let clipped_start = if pause.paused_at > start {
+            pause.paused_at
+        } else {
+            start
+        };
+        let clipped_end = if interval_end < end {
+            interval_end
+        } else {
+            end
+        };
+        if clipped_end > clipped_start {
+            total += (clipped_end - clipped_start).num_seconds().max(0);
+        }
+    }
+    total
+}
+
+/// Paused time intersecting one incident's span.
+fn paused_overlap_for_incident(
+    pauses: &[PauseInterval],
+    monitor_id: Uuid,
+    incident_start: DateTime<Utc>,
+    incident_end: DateTime<Utc>,
+    now: DateTime<Utc>,
+) -> i64 {
+    pauses
+        .iter()
+        .filter(|pause| pause.monitor_id == monitor_id)
+        .map(|pause| {
+            overlap_seconds(
+                incident_start,
+                incident_end,
+                pause.paused_at,
+                pause.resumed_at.unwrap_or(now),
+            )
+        })
+        .sum()
+}
+
+/// Downtime totals for incidents started inside the window. Paused overlap
+/// is subtracted so time excluded from monitoring never counts as downtime.
 async fn incident_stats(state: &AppState, window: ReportWindow) -> Result<IncidentStats, AppError> {
-    let rows = incident_repository::window_incidents(&state.pool, window.start, window.end).await?;
     let now = Utc::now();
+    let pause_horizon = if window.end > now { window.end } else { now };
+    let pauses =
+        pause_repository::window_intervals(&state.pool, window.start, pause_horizon).await?;
+    let rows = incident_repository::window_incidents(&state.pool, window.start, window.end).await?;
     let mut outage_count = 0i64;
     let mut downtime_seconds = 0i64;
-    for (started_at, resolved_at) in rows {
+    for (monitor_id, started_at, resolved_at) in rows {
         let end = resolved_at.unwrap_or(now);
-        downtime_seconds += (end - started_at).num_seconds().max(0);
+        let duration = (end - started_at).num_seconds().max(0);
+        let paused = paused_overlap_for_incident(&pauses, monitor_id, started_at, end, now);
+        downtime_seconds += (duration - paused).max(0);
         outage_count += 1;
     }
     Ok(IncidentStats {
@@ -179,15 +259,21 @@ pub async fn uptime_report(
         .into_iter()
         .map(|(id, checks, successes)| (id, (checks, successes)))
         .collect();
+    let pauses = pause_repository::window_intervals(&state.pool, window.start, window.end).await?;
+    let now = Utc::now();
 
     let mut total_checks = 0i64;
     let mut total_successes = 0i64;
+    let mut total_paused_seconds = 0i64;
     let monitors: Vec<MonitorUptime> = monitors
         .into_iter()
         .map(|monitor| {
             let (checks, successes) = by_id.get(&monitor.id).copied().unwrap_or((0, 0));
+            let paused_seconds =
+                paused_seconds_in_window(&pauses, Some(monitor.id), window.start, window.end, now);
             total_checks += checks;
             total_successes += successes;
+            total_paused_seconds += paused_seconds;
             MonitorUptime {
                 monitor_id: monitor.id,
                 name: monitor.name,
@@ -195,6 +281,7 @@ pub async fn uptime_report(
                 current_status: monitor.current_status.as_str().to_string(),
                 checks,
                 successes,
+                paused_seconds,
                 uptime_percent: uptime_percent(checks, successes),
             }
         })
@@ -205,6 +292,7 @@ pub async fn uptime_report(
         monitors,
         total_checks,
         total_successes,
+        total_paused_seconds,
         overall_uptime_percent: uptime_percent(total_checks, total_successes),
     })
 }

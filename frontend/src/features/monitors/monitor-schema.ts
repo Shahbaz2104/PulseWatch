@@ -44,6 +44,15 @@ export const monitorSchema = z
       .int("Whole number")
       .min(1, "At least 1")
       .max(100, "At most 100"),
+    alert_webhook_url: z
+      .union([z.literal(""), z.string().trim().url("Must be a valid URL (http:// or https://)")])
+      .optional(),
+    alert_email: z
+      .union([
+        z.literal(""),
+        z.string().trim().max(254, "Must be at most 254 characters").email("Must be a valid email address"),
+      ])
+      .optional(),
   })
   .refine((value) => value.expected_status_min <= value.expected_status_max, {
     message: "Range start must be ≤ range end",
@@ -62,4 +71,6 @@ export const monitorDefaults: MonitorFormValues = {
   expected_status_max: 399,
   consecutive_failures_threshold: 1,
   consecutive_successes_threshold: 1,
+  alert_webhook_url: "",
+  alert_email: "",
 };

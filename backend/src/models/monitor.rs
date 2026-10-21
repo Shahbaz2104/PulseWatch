@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
+use serde::ser::SerializeStruct;
+
 /// Lifecycle status of a monitor.
 ///
 /// `Paused` monitors never run checks and must never be reported as
@@ -43,7 +45,11 @@ impl MonitorStatus {
 }
 
 /// Row + domain representation of a monitored URL.
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow, ToSchema)]
+///
+/// Serialization is hand-written so alert destinations never leak through
+/// public monitor responses: clients only learn whether a destination is
+/// configured, not the webhook URL or email address itself.
+#[derive(Debug, Clone, Deserialize, sqlx::FromRow, ToSchema)]
 pub struct Monitor {
     pub id: Uuid,
     pub name: String,
@@ -56,6 +62,12 @@ pub struct Monitor {
     pub consecutive_failures_threshold: i64,
     pub consecutive_successes_threshold: i64,
     pub retry_max_attempts: i64,
+    /// Optional webhook URL notified when an incident opens or resolves.
+    #[schema(rename = "alert_webhook_configured", value_type = bool)]
+    pub alert_webhook_url: Option<String>,
+    /// Optional email address notified when an incident opens or resolves.
+    #[schema(rename = "alert_email_configured", value_type = bool)]
+    pub alert_email: Option<String>,
     pub current_status: MonitorStatus,
     pub consecutive_failures: i64,
     pub consecutive_successes: i64,
@@ -63,6 +75,45 @@ pub struct Monitor {
     pub updated_at: DateTime<Utc>,
     pub last_checked_at: Option<DateTime<Utc>>,
     pub next_check_at: Option<DateTime<Utc>>,
+}
+
+impl Serialize for Monitor {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("Monitor", 20)?;
+        state.serialize_field("id", &self.id)?;
+        state.serialize_field("name", &self.name)?;
+        state.serialize_field("url", &self.url)?;
+        state.serialize_field("enabled", &self.enabled)?;
+        state.serialize_field("check_interval_seconds", &self.check_interval_seconds)?;
+        state.serialize_field("timeout_ms", &self.timeout_ms)?;
+        state.serialize_field("expected_status_min", &self.expected_status_min)?;
+        state.serialize_field("expected_status_max", &self.expected_status_max)?;
+        state.serialize_field(
+            "consecutive_failures_threshold",
+            &self.consecutive_failures_threshold,
+        )?;
+        state.serialize_field(
+            "consecutive_successes_threshold",
+            &self.consecutive_successes_threshold,
+        )?;
+        state.serialize_field("retry_max_attempts", &self.retry_max_attempts)?;
+        state.serialize_field(
+            "alert_webhook_configured",
+            &self.alert_webhook_url.is_some(),
+        )?;
+        state.serialize_field("alert_email_configured", &self.alert_email.is_some())?;
+        state.serialize_field("current_status", &self.current_status)?;
+        state.serialize_field("consecutive_failures", &self.consecutive_failures)?;
+        state.serialize_field("consecutive_successes", &self.consecutive_successes)?;
+        state.serialize_field("created_at", &self.created_at)?;
+        state.serialize_field("updated_at", &self.updated_at)?;
+        state.serialize_field("last_checked_at", &self.last_checked_at)?;
+        state.serialize_field("next_check_at", &self.next_check_at)?;
+        state.end()
+    }
 }
 
 /// Request body for `POST /api/v1/monitors`.
@@ -85,6 +136,10 @@ pub struct CreateMonitorRequest {
     pub consecutive_successes_threshold: Option<i64>,
     #[serde(default)]
     pub retry_max_attempts: Option<i64>,
+    #[serde(default)]
+    pub alert_webhook_url: Option<String>,
+    #[serde(default)]
+    pub alert_email: Option<String>,
 }
 
 /// Request body for `PUT /api/v1/monitors/{id}` (all fields optional).
@@ -99,6 +154,10 @@ pub struct UpdateMonitorRequest {
     pub consecutive_failures_threshold: Option<i64>,
     pub consecutive_successes_threshold: Option<i64>,
     pub retry_max_attempts: Option<i64>,
+    #[serde(default)]
+    pub alert_webhook_url: Option<String>,
+    #[serde(default)]
+    pub alert_email: Option<String>,
 }
 
 /// Monitor fields plus latest check snapshot and windowed uptime for list views.

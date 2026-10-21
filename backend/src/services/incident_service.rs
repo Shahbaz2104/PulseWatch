@@ -17,9 +17,10 @@
 use chrono::{DateTime, Utc};
 use sqlx::SqliteConnection;
 
+use crate::models::alert::AlertEvent;
 use crate::models::incident::Incident;
 use crate::models::monitor::{Monitor, MonitorStatus};
-use crate::repositories::{incident_repository, monitor_repository};
+use crate::repositories::{alert_repository, incident_repository, monitor_repository};
 
 /// Status + counters implied by one completed check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,6 +106,27 @@ pub async fn persist_check_outcome(
             incident_repository::resolve_open(&mut *conn, monitor_before.id, checked_at).await?;
     }
 
+    if let Some(incident) = incident_opened.as_ref() {
+        alert_repository::enqueue_for_transition(
+            &mut *conn,
+            monitor_before,
+            incident,
+            AlertEvent::Opened,
+            checked_at,
+        )
+        .await?;
+    }
+    if let Some(incident) = incident_resolved.as_ref() {
+        alert_repository::enqueue_for_transition(
+            &mut *conn,
+            monitor_before,
+            incident,
+            AlertEvent::Resolved,
+            checked_at,
+        )
+        .await?;
+    }
+
     monitor_repository::apply_check_outcome(
         &mut *conn,
         monitor_before.id,
@@ -147,6 +169,8 @@ mod tests {
             consecutive_failures_threshold: failures_threshold,
             consecutive_successes_threshold: successes_threshold,
             retry_max_attempts: 1,
+            alert_webhook_url: None,
+            alert_email: None,
             current_status: MonitorStatus::Unknown,
             consecutive_failures: 0,
             consecutive_successes: 0,

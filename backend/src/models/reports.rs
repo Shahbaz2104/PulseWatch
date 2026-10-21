@@ -11,6 +11,9 @@
 //!   recorded response time; `null` when fewer than 2 samples exist.
 //! - Downtime is derived from incident timestamps: resolved incidents use
 //!   `resolved_at - started_at`; open incidents use `now - started_at`.
+//!   Paused intervals inside an incident are excluded.
+//! - Paused seconds are clipped to the selected window and measured per
+//!   monitor; they explain gaps without changing check-based uptime.
 
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -40,6 +43,8 @@ pub struct MonitorUptime {
     pub current_status: String,
     pub checks: i64,
     pub successes: i64,
+    /// Monitor-time paused inside the window, clipped to its bounds.
+    pub paused_seconds: i64,
     /// `null` when the window has no checks.
     pub uptime_percent: Option<f64>,
 }
@@ -51,6 +56,8 @@ pub struct UptimeReport {
     pub monitors: Vec<MonitorUptime>,
     pub total_checks: i64,
     pub total_successes: i64,
+    /// Sum of per-monitor paused time clipped to the window.
+    pub total_paused_seconds: i64,
     /// `null` when no monitor has checks in the window.
     pub overall_uptime_percent: Option<f64>,
 }
@@ -106,7 +113,8 @@ pub struct RecentCheck {
 pub struct IncidentStats {
     /// Incidents that started inside the window.
     pub outage_count: i64,
-    /// Sum of incident durations (open incidents measured at query time).
+    /// Sum of incident durations, excluding paused overlap (open incidents
+    /// measured at query time).
     pub downtime_seconds: i64,
 }
 

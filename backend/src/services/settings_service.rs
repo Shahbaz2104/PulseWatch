@@ -6,9 +6,10 @@ use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
 use crate::config::{
-    Config, MAX_CHECK_INTERVAL_SECS, MAX_CONCURRENCY, MAX_RETRY_ATTEMPTS, MAX_RETRY_BACKOFF_MAX_MS,
-    MAX_RETRY_BACKOFF_MS, MAX_TIMEOUT_MS, MIN_CHECK_INTERVAL_SECS, MIN_CONCURRENCY,
-    MIN_RETRY_ATTEMPTS, MIN_RETRY_BACKOFF_MAX_MS, MIN_RETRY_BACKOFF_MS, MIN_TIMEOUT_MS,
+    Config, MAX_CHECK_INTERVAL_SECS, MAX_CHECK_RETENTION_DAYS, MAX_CONCURRENCY, MAX_RETRY_ATTEMPTS,
+    MAX_RETRY_BACKOFF_MAX_MS, MAX_RETRY_BACKOFF_MS, MAX_TIMEOUT_MS, MIN_CHECK_INTERVAL_SECS,
+    MIN_CHECK_RETENTION_DAYS, MIN_CONCURRENCY, MIN_RETRY_ATTEMPTS, MIN_RETRY_BACKOFF_MAX_MS,
+    MIN_RETRY_BACKOFF_MS, MIN_TIMEOUT_MS,
 };
 use crate::error::{AppError, FieldError};
 use crate::repositories::settings_repository;
@@ -22,6 +23,7 @@ pub const KEY_RETRY_BACKOFF_MAX_MS: &str = "default_retry_backoff_max_ms";
 pub const KEY_EXPECTED_STATUS_MIN: &str = "default_expected_status_min";
 pub const KEY_EXPECTED_STATUS_MAX: &str = "default_expected_status_max";
 pub const KEY_MAX_CONCURRENT_CHECKS: &str = "max_concurrent_checks";
+pub const KEY_CHECK_RETENTION_DAYS: &str = "check_retention_days";
 
 /// Effective defaults applied to newly created monitors, plus the runtime
 /// concurrency limit (applied by the scheduler's semaphore at startup).
@@ -43,6 +45,8 @@ pub struct AppSettings {
     pub default_expected_status_max: i64,
     /// Maximum concurrent outbound checks (scheduler semaphore size).
     pub max_concurrent_checks: i64,
+    /// Days of check history retained by the cleanup worker.
+    pub check_retention_days: i64,
 }
 
 /// Partial update payload: only provided fields change.
@@ -56,6 +60,7 @@ pub struct SettingsPatch {
     pub default_expected_status_min: Option<i64>,
     pub default_expected_status_max: Option<i64>,
     pub max_concurrent_checks: Option<i64>,
+    pub check_retention_days: Option<i64>,
 }
 
 /// Response to a successful update: the new effective settings plus the list
@@ -102,6 +107,7 @@ impl AppSettings {
                 KEY_MAX_CONCURRENT_CHECKS,
                 config.max_concurrent_checks as i64,
             ),
+            check_retention_days: parse(KEY_CHECK_RETENTION_DAYS, config.check_retention_days),
         };
         // Guard against out-of-range stored rows (manual DB edits).
         settings.clamp();
@@ -132,6 +138,9 @@ impl AppSettings {
         self.max_concurrent_checks = self
             .max_concurrent_checks
             .clamp(MIN_CONCURRENCY as i64, MAX_CONCURRENCY as i64);
+        self.check_retention_days = self
+            .check_retention_days
+            .clamp(MIN_CHECK_RETENTION_DAYS, MAX_CHECK_RETENTION_DAYS);
     }
 
     /// Validate a patch, persist the provided fields, and return the new
@@ -220,6 +229,14 @@ impl AppSettings {
         ) {
             after.max_concurrent_checks = value;
         }
+        if let Some(value) = check(
+            "check_retention_days",
+            patch.check_retention_days,
+            MIN_CHECK_RETENTION_DAYS,
+            MAX_CHECK_RETENTION_DAYS,
+        ) {
+            after.check_retention_days = value;
+        }
         if !errors.is_empty() {
             return Err(AppError::Validation(errors));
         }
@@ -237,7 +254,7 @@ impl AppSettings {
         }
 
         let now = chrono::Utc::now();
-        let rows: [(&str, i64); 8] = [
+        let rows: [(&str, i64); 9] = [
             (KEY_CHECK_INTERVAL, after.default_check_interval_seconds),
             (KEY_TIMEOUT_MS, after.default_timeout_ms),
             (KEY_RETRY_MAX_ATTEMPTS, after.default_retry_max_attempts),
@@ -246,6 +263,7 @@ impl AppSettings {
             (KEY_EXPECTED_STATUS_MIN, after.default_expected_status_min),
             (KEY_EXPECTED_STATUS_MAX, after.default_expected_status_max),
             (KEY_MAX_CONCURRENT_CHECKS, after.max_concurrent_checks),
+            (KEY_CHECK_RETENTION_DAYS, after.check_retention_days),
         ];
         for (key, value) in rows {
             settings_repository::upsert(pool, key, value, now)
@@ -285,6 +303,7 @@ mod tests {
             default_expected_status_min: 200,
             default_expected_status_max: 399,
             max_concurrent_checks: 16,
+            check_retention_days: 90,
         };
         settings.default_timeout_ms = patch.default_timeout_ms.unwrap();
         settings.clamp();
@@ -302,6 +321,7 @@ mod tests {
             default_expected_status_min: 400,
             default_expected_status_max: 200,
             max_concurrent_checks: 16,
+            check_retention_days: 90,
         };
         settings.clamp();
         assert!(settings.default_expected_status_min <= settings.default_expected_status_max);

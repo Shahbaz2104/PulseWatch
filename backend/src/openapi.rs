@@ -1,8 +1,10 @@
 //! OpenAPI document served via Swagger UI.
 
+use utoipa::openapi::security::{ApiKey, ApiKeyValue, SecurityScheme};
 use utoipa::OpenApi as OpenApiTrait;
 use utoipa::{Modify, OpenApi};
 
+use crate::auth::SESSION_COOKIE;
 use crate::error::{ErrorBody, ErrorResponse, FieldError};
 use crate::models::check_result::{CheckResult, CheckSummary, ListChecksQuery};
 use crate::models::incident::{Incident, IncidentStatus, IncidentWithMonitor, ListIncidentsQuery};
@@ -11,6 +13,7 @@ use crate::models::monitor::{
     UpdateMonitorRequest,
 };
 use crate::models::ReportWindow;
+use crate::routes::auth::{AuthStatus, LoginRequest};
 use crate::routes::health::HealthResponse;
 
 /// Documents the shared JSON error envelope in the API description.
@@ -26,8 +29,16 @@ impl Modify for ErrorEnvelopeNote {
             "All error responses use the envelope \
              `{\"error\": {\"code\", \"message\", \"details\"?}}` \
              with codes: `bad_request`, `validation_failed`, `not_found`, \
-             `conflict`, `rate_limited`, `internal_error`.",
+             `conflict`, `rate_limited`, `internal_error`, `unauthorized`, `forbidden`.",
         );
+
+        openapi
+            .components
+            .get_or_insert_with(Default::default)
+            .add_security_scheme(
+                "session_cookie",
+                SecurityScheme::ApiKey(ApiKey::Cookie(ApiKeyValue::new(SESSION_COOKIE))),
+            );
     }
 }
 
@@ -35,6 +46,9 @@ impl Modify for ErrorEnvelopeNote {
 #[openapi(
     paths(
         crate::routes::health::health,
+        crate::routes::auth::status,
+        crate::routes::auth::login,
+        crate::routes::auth::logout,
         crate::routes::monitors::list,
         crate::routes::monitors::get,
         crate::routes::monitors::create,
@@ -57,6 +71,8 @@ impl Modify for ErrorEnvelopeNote {
     ),
     components(schemas(
         HealthResponse,
+        AuthStatus,
+        LoginRequest,
         ErrorResponse,
         ErrorBody,
         FieldError,
@@ -96,6 +112,7 @@ impl Modify for ErrorEnvelopeNote {
     )),
     tags(
         (name = "health", description = "Service health probes"),
+        (name = "auth", description = "Admin session authentication"),
         (name = "monitors", description = "Monitor CRUD and control"),
         (name = "checks", description = "Historical check results"),
         (name = "incidents", description = "Outage incidents"),

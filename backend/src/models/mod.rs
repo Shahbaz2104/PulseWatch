@@ -1,5 +1,6 @@
 //! Shared domain models and query/report window helpers.
 
+pub mod alert;
 pub mod check_result;
 pub mod incident;
 pub mod monitor;

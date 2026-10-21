@@ -28,8 +28,8 @@ An uptime monitor you own end-to-end: honest metrics (0 checks → null, never a
 
 ## Capabilities and Constraints
 
-- Monitors CRUD with pause/resume/manual check; 1-second-tick scheduler with atomic claim and concurrency semaphore; retries with exponential backoff; incidents; reports; settings; CSV export; ⌘K command palette; light/dark theme.
-- Constraints: no authentication (put a reverse proxy in front for shared deploys); single-process scheduler; check-based uptime only; paused time is not excluded from uptime percentages; private targets are blocked by default (dev-only override).
+- Monitors CRUD with pause/resume/manual check; 1-second-tick scheduler with atomic claim and concurrency semaphore; retries with exponential backoff; incidents; pause history; webhook + email alerting through a durable outbox; reports with paused-time accounting; configurable check retention; settings; CSV export; ⌘K command palette; light/dark theme.
+- Constraints: single-admin cookie auth only (no user accounts/roles/reset); single-process scheduler; check-based uptime only; paused time is reported separately and excluded from downtime, never folded into uptime; check history defaults to 90 days (7–365 configurable); private targets are blocked by default (dev-only override); alert destinations are write-only in public API responses.
 - Terminology to preserve: monitor, check, incident, Degraded (amber: nominally up with consecutive failures), missing data shown as "—".
 
 ## Brand Commitments
@@ -39,7 +39,7 @@ An uptime monitor you own end-to-end: honest metrics (0 checks → null, never a
 
 ## Evidence on Hand
 
-- Working app: backend 79 tests, frontend 36 tests, CI green; `README.md` with use cases; `docs/linkedin-demo.mp4` + `docs/linkedin-poster.png`; five screenshots in `docs/screenshots/`; `.env.example`; OpenAPI at `/api/v1/docs`.
+- Working app: backend 100 tests, frontend 77 tests, CI green; `README.md` with use cases; `docs/linkedin-demo.mp4` + `docs/linkedin-poster.png`; five screenshots in `docs/screenshots/`; `.env.example`; OpenAPI at `/api/v1/docs`.
 - Absent and never to be fabricated: customers, testimonials, benchmarks, pricing.
 
 ## Product Principles

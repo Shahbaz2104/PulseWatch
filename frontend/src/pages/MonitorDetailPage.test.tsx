@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   useMonitor: vi.fn(),
   useCheckSummary: vi.fn(),
   useChecks: vi.fn(),
+  useHealth: vi.fn(),
   useIncidents: vi.fn(),
   useResponseTimes: vi.fn(),
   useCheckNow: vi.fn(),
@@ -22,9 +23,11 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/hooks/use-api", () => ({
+  useDemoMode: () => false,
   useMonitor: mocks.useMonitor,
   useCheckSummary: mocks.useCheckSummary,
   useChecks: mocks.useChecks,
+  useHealth: mocks.useHealth,
   useIncidents: mocks.useIncidents,
   useResponseTimes: mocks.useResponseTimes,
   useCheckNow: mocks.useCheckNow,
@@ -59,6 +62,8 @@ function monitor(): MonitorSummary {
     consecutive_failures_threshold: 1,
     consecutive_successes_threshold: 1,
     retry_max_attempts: 2,
+    alert_webhook_configured: false,
+    alert_email_configured: false,
     current_status: "up",
     consecutive_failures: 0,
     consecutive_successes: 2,
@@ -147,6 +152,17 @@ beforeEach(() => {
     isError: false,
   });
   mocks.useCheckSummary.mockReset().mockReturnValue({ data: summary(), isLoading: false });
+  mocks.useHealth.mockReset().mockReturnValue({
+    data: {
+      status: "ok",
+      service: "pulsewatch",
+      version: "0.1.0",
+      database: "ok",
+      email_configured: true,
+      demo_mode: false,
+    },
+    isLoading: false,
+  });
   mocks.useChecks
     .mockReset()
     .mockImplementation((_id: string, query: { result?: string }) =>
@@ -180,6 +196,34 @@ describe("MonitorDetailPage", () => {
     expect(screen.getByLabelText("42 milliseconds")).toBeInTheDocument();
     expect(screen.getByLabelText("200")).toBeInTheDocument();
     expect(screen.getByText("Within expected range")).toBeInTheDocument();
+  });
+
+  it("shows alert configuration and warns when SMTP is unavailable", () => {
+    mocks.useMonitor.mockReturnValue({
+      data: {
+        ...monitor(),
+        alert_webhook_configured: true,
+        alert_email_configured: true,
+      },
+      isLoading: false,
+      isError: false,
+    });
+    mocks.useHealth.mockReturnValue({
+      data: {
+        status: "ok",
+        service: "pulsewatch",
+        version: "0.1.0",
+        database: "ok",
+        email_configured: false,
+        demo_mode: false,
+      },
+      isLoading: false,
+    });
+    renderPage();
+    expect(screen.getByText("Webhook alerts")).toBeInTheDocument();
+    expect(screen.getByText("Email alerts")).toBeInTheDocument();
+    expect(screen.getAllByText("Configured")).toHaveLength(2);
+    expect(screen.getByText(/SMTP is not available on this server/)).toBeInTheDocument();
   });
 
   it("renders incident history with duration and failure reason", () => {

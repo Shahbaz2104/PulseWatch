@@ -27,6 +27,7 @@ const SETTINGS: AppSettings = {
   default_expected_status_min: 200,
   default_expected_status_max: 399,
   max_concurrent_checks: 16,
+  check_retention_days: 90,
 };
 
 function editingMonitor(): MonitorSummary {
@@ -42,6 +43,8 @@ function editingMonitor(): MonitorSummary {
     consecutive_failures_threshold: 1,
     consecutive_successes_threshold: 1,
     retry_max_attempts: 2,
+    alert_webhook_configured: false,
+    alert_email_configured: false,
     current_status: "up",
     consecutive_failures: 0,
     consecutive_successes: 1,
@@ -113,6 +116,61 @@ describe("MonitorFormDialog", () => {
     const options = mocks.create.mock.calls[0]?.[1] as { onSuccess: () => void };
     options.onSuccess();
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("sends optional alert destinations on create", async () => {
+    renderDialog();
+    await userEvent.type(
+      screen.getByPlaceholderText("https://example.com/health"),
+      "https://example.com",
+    );
+    await userEvent.type(
+      screen.getByPlaceholderText("https://hooks.example.com/pulsewatch"),
+      "https://hooks.example.com/alerts",
+    );
+    await userEvent.type(screen.getByPlaceholderText("oncall@example.com"), "ops@example.com");
+    await userEvent.click(screen.getByRole("button", { name: "Create monitor" }));
+
+    await waitFor(() => {
+      expect(mocks.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          url: "https://example.com",
+          alert_webhook_url: "https://hooks.example.com/alerts",
+          alert_email: "ops@example.com",
+        }),
+        expect.objectContaining({ onSuccess: expect.any(Function) }),
+      );
+    });
+  });
+
+  it("leaves configured alerts untouched unless the remove switch is on", async () => {
+    renderDialog({ ...editingMonitor(), alert_webhook_configured: true, alert_email_configured: true });
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledWith(
+        expect.not.objectContaining({ alert_webhook_url: expect.anything() }),
+        expect.objectContaining({ onSuccess: expect.any(Function) }),
+      );
+    });
+    const firstPayload = mocks.update.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(firstPayload).not.toHaveProperty("alert_webhook_url");
+    expect(firstPayload).not.toHaveProperty("alert_email");
+  });
+
+  it("clears a configured destination with an explicit empty string", async () => {
+    renderDialog({ ...editingMonitor(), alert_webhook_configured: true, alert_email_configured: true });
+    await userEvent.click(screen.getByLabelText("Remove the configured webhook"));
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => {
+      expect(mocks.update).toHaveBeenCalledWith(
+        expect.objectContaining({ alert_webhook_url: "" }),
+        expect.objectContaining({ onSuccess: expect.any(Function) }),
+      );
+    });
+    const payload = mocks.update.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload).not.toHaveProperty("alert_email");
   });
 
   it("prefills and updates an existing monitor", async () => {

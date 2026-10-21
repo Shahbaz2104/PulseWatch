@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
@@ -21,6 +21,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { ApiError } from "@/lib/api";
 import {
   monitorDefaults,
@@ -28,7 +30,7 @@ import {
   type MonitorFormValues,
 } from "@/features/monitors/monitor-schema";
 import { useCreateMonitor, useSettings, useUpdateMonitor } from "@/hooks/use-api";
-import type { MonitorSummary } from "@/types/api";
+import type { CreateMonitorRequest, MonitorSummary } from "@/types/api";
 
 interface MonitorFormDialogProps {
   open: boolean;
@@ -54,6 +56,8 @@ function applyServerFieldErrors(
 
 export function MonitorFormDialog({ open, onOpenChange, editing }: MonitorFormDialogProps) {
   const isEdit = editing != null;
+  const [clearWebhook, setClearWebhook] = useState(false);
+  const [clearEmail, setClearEmail] = useState(false);
   const { data: settings } = useSettings();
   const create = useCreateMonitor();
   const update = useUpdateMonitor(editing?.id ?? "");
@@ -89,6 +93,8 @@ export function MonitorFormDialog({ open, onOpenChange, editing }: MonitorFormDi
     const seedKey = editing?.id ?? "create";
     if (seededFor.current === seedKey) return;
     seededFor.current = seedKey;
+    setClearWebhook(false);
+    setClearEmail(false);
 
     createRef.current.reset();
     updateRef.current.reset();
@@ -118,10 +124,20 @@ export function MonitorFormDialog({ open, onOpenChange, editing }: MonitorFormDi
 
   const onSubmit = (values: MonitorFormValues) => {
     const trimmedName = (values.name ?? "").trim();
-    const payload = {
-      ...values,
+    const { alert_webhook_url, alert_email, ...fields } = values;
+    const payload: CreateMonitorRequest = {
+      ...fields,
       name: trimmedName === "" ? undefined : trimmedName,
     };
+    // Destinations are write-only. An omitted field keeps the stored value;
+    // an explicit empty string clears it.
+    const webhook = (alert_webhook_url ?? "").trim();
+    if (clearWebhook) payload.alert_webhook_url = "";
+    else if (webhook !== "") payload.alert_webhook_url = webhook;
+    const email = (alert_email ?? "").trim();
+    if (clearEmail) payload.alert_email = "";
+    else if (email !== "") payload.alert_email = email;
+
     const mutation = isEdit ? update : create;
     mutation.mutate(payload, {
       onSuccess: () => {
@@ -184,6 +200,99 @@ export function MonitorFormDialog({ open, onOpenChange, editing }: MonitorFormDi
                 </FormItem>
               )}
             />
+            <div className="space-y-4 rounded-lg border p-4">
+              <div>
+                <p className="text-sm font-medium">Alerts</p>
+                <p className="text-muted-foreground text-xs">
+                  Notify a webhook or inbox when an incident opens or resolves.
+                </p>
+              </div>
+              <FormField
+                control={form.control}
+                name="alert_webhook_url"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Webhook URL</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="url"
+                        spellCheck={false}
+                        autoComplete="off"
+                        placeholder={
+                          editing?.alert_webhook_configured
+                            ? "Configured — enter a new URL to replace"
+                            : "https://hooks.example.com/pulsewatch"
+                        }
+                        disabled={clearWebhook}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Receives a JSON POST when the monitor goes down or recovers.
+                    </FormDescription>
+                    {editing?.alert_webhook_configured ? (
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <Label
+                          htmlFor="clear-alert-webhook"
+                          className="text-muted-foreground text-xs font-normal"
+                        >
+                          Remove the configured webhook
+                        </Label>
+                        <Switch
+                          id="clear-alert-webhook"
+                          checked={clearWebhook}
+                          onCheckedChange={setClearWebhook}
+                        />
+                      </div>
+                    ) : null}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="alert_email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Alert email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        autoComplete="off"
+                        placeholder={
+                          editing?.alert_email_configured
+                            ? "Configured — enter a new address to replace"
+                            : "oncall@example.com"
+                        }
+                        disabled={clearEmail}
+                        {...field}
+                        value={field.value ?? ""}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Requires SMTP to be configured on the server.
+                    </FormDescription>
+                    {editing?.alert_email_configured ? (
+                      <div className="flex items-center justify-between gap-3 pt-1">
+                        <Label
+                          htmlFor="clear-alert-email"
+                          className="text-muted-foreground text-xs font-normal"
+                        >
+                          Remove the configured email
+                        </Label>
+                        <Switch
+                          id="clear-alert-email"
+                          checked={clearEmail}
+                          onCheckedChange={setClearEmail}
+                        />
+                      </div>
+                    ) : null}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <FormField
                 control={form.control}

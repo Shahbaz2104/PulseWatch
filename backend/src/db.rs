@@ -66,6 +66,7 @@ mod tests {
         assert!(tables.contains(&"check_results".to_string()));
         assert!(tables.contains(&"incidents".to_string()));
         assert!(tables.contains(&"settings".to_string()));
+        assert!(tables.contains(&"monitor_pauses".to_string()));
 
         // Foreign key enforcement must be on for the pooled connection.
         let fk: i64 = sqlx::query_scalar("PRAGMA foreign_keys")

@@ -32,7 +32,7 @@ import { WindowPicker } from "@/components/window-picker";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MonitorActions } from "@/features/monitors/monitor-actions";
 import { MonitorFormDialog } from "@/features/monitors/monitor-form";
-import { useMonitors } from "@/hooks/use-api";
+import { useDemoMode, useMonitors } from "@/hooks/use-api";
 import { formatMs, formatPercent, formatRelative } from "@/lib/format";
 import type { MonitorSummary, WindowQuery } from "@/types/api";
 
@@ -127,6 +127,7 @@ function MonitorCard({ monitor, onEdit }: { monitor: MonitorSummary; onEdit: () 
 
 export function MonitorsPage() {
   const [params, setParams] = useSearchParams();
+  const demoMode = useDemoMode();
   const [search, setSearch] = useState(params.get("search") ?? "");
   const [status, setStatus] = useState(params.get("status") ?? "all");
   const [sort, setSort] = useState<SortField>("created");
@@ -144,6 +145,13 @@ export function MonitorsPage() {
       setParams(next, { replace: true });
     }
   }, [dialogOpen, params, setParams]);
+
+  // The create dialog must never open in a read-only demo, even via ?new=1.
+  useEffect(() => {
+    if (demoMode) {
+      setDialogOpen(false);
+    }
+  }, [demoMode]);
 
   // Debounce search into the query.
   const [debouncedSearch, setDebouncedSearch] = useState(search);
@@ -184,7 +192,11 @@ export function MonitorsPage() {
         title="Monitors"
         description="Every watched URL, its live status, and controls."
         actions={
-          <Button onClick={openCreate}>
+          <Button
+            onClick={openCreate}
+            disabled={demoMode}
+            title={demoMode ? "Read-only demo: changes are blocked" : undefined}
+          >
             <Plus /> Add monitor
           </Button>
         }

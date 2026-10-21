@@ -3,10 +3,12 @@
 import { api } from "@/lib/api";
 import type {
   AppSettings,
+  AuthStatus,
   CheckResponse,
   CheckResult,
   CheckSummaryStats,
   CreateMonitorRequest,
+  HealthResponse,
   IncidentReport,
   IncidentWithMonitor,
   Monitor,
@@ -149,6 +151,16 @@ export const incidentsApi = {
 export const settingsApi = {
   get: () => api.get<AppSettings>("/settings"),
   update: (patch: SettingsPatch) => api.put<SettingsUpdateResponse>("/settings", patch),
+};
+
+export const healthApi = {
+  get: () => api.get<HealthResponse>("/health"),
+};
+
+export const authApi = {
+  status: () => api.get<AuthStatus>("/auth/status"),
+  login: (password: string) => api.post<AuthStatus>("/auth/login", { password }),
+  logout: () => api.post<void>("/auth/logout"),
 };
 
 export { windowSearchParams };

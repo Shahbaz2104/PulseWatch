@@ -21,6 +21,7 @@ async fn get_returns_env_derived_defaults() {
     assert_eq!(body["default_expected_status_max"], 399);
     // TestApp builds its config with a semaphore of 8.
     assert_eq!(body["max_concurrent_checks"], 8);
+    assert_eq!(body["check_retention_days"], 90);
 }
 
 #[tokio::test]
@@ -142,6 +143,19 @@ async fn invalid_settings_are_rejected_with_field_errors() {
         "default_retry_backoff_max_ms"
     );
 
+    // Retention outside the documented 7–365 day range.
+    for invalid in [6, 366] {
+        let (status, body) = app
+            .request_json(json_request(
+                "PUT",
+                "/api/v1/settings",
+                Some(json!({ "check_retention_days": invalid })),
+            ))
+            .await;
+        assert_eq!(status, 422);
+        assert_eq!(body["error"]["details"][0]["field"], "check_retention_days");
+    }
+
     // Nothing was persisted by the failed updates.
     let (status, body) = app
         .request_json(json_request("GET", "/api/v1/settings", None))
@@ -149,4 +163,26 @@ async fn invalid_settings_are_rejected_with_field_errors() {
     assert_eq!(status, 200);
     assert_eq!(body["default_timeout_ms"], 5000);
     assert_eq!(body["default_expected_status_min"], 200);
+    assert_eq!(body["check_retention_days"], 90);
+}
+
+#[tokio::test]
+async fn retention_days_round_trips() {
+    let app = TestApp::new(true).await;
+    let (status, body) = app
+        .request_json(json_request(
+            "PUT",
+            "/api/v1/settings",
+            Some(json!({ "check_retention_days": 30 })),
+        ))
+        .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["settings"]["check_retention_days"], 30);
+    assert!(body["restart_required"].as_array().unwrap().is_empty());
+
+    let (status, body) = app
+        .request_json(json_request("GET", "/api/v1/settings", None))
+        .await;
+    assert_eq!(status, 200);
+    assert_eq!(body["check_retention_days"], 30);
 }

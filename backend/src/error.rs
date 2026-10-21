@@ -16,6 +16,8 @@ pub type ApiResult<T> = Result<T, AppError>;
 pub enum ErrorCode {
     BadRequest,
     ValidationFailed,
+    Unauthorized,
+    Forbidden,
     NotFound,
     Conflict,
     RateLimited,
@@ -27,6 +29,8 @@ impl ErrorCode {
         match self {
             ErrorCode::BadRequest => "bad_request",
             ErrorCode::ValidationFailed => "validation_failed",
+            ErrorCode::Unauthorized => "unauthorized",
+            ErrorCode::Forbidden => "forbidden",
             ErrorCode::NotFound => "not_found",
             ErrorCode::Conflict => "conflict",
             ErrorCode::RateLimited => "rate_limited",
@@ -61,6 +65,10 @@ pub enum AppError {
     #[error("validation failed")]
     Validation(Vec<FieldError>),
     #[error("{0}")]
+    Unauthorized(String),
+    #[error("{0}")]
+    Forbidden(String),
+    #[error("{0}")]
     NotFound(String),
     #[error("{0}")]
     Conflict(String),
@@ -75,6 +83,8 @@ impl AppError {
         match self {
             AppError::BadRequest(_) => StatusCode::BAD_REQUEST,
             AppError::Validation(_) => StatusCode::UNPROCESSABLE_ENTITY,
+            AppError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+            AppError::Forbidden(_) => StatusCode::FORBIDDEN,
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
             AppError::Conflict(_) => StatusCode::CONFLICT,
             AppError::Database(_) | AppError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
@@ -85,6 +95,8 @@ impl AppError {
         match self {
             AppError::BadRequest(_) => ErrorCode::BadRequest,
             AppError::Validation(_) => ErrorCode::ValidationFailed,
+            AppError::Unauthorized(_) => ErrorCode::Unauthorized,
+            AppError::Forbidden(_) => ErrorCode::Forbidden,
             AppError::NotFound(_) => ErrorCode::NotFound,
             AppError::Conflict(_) => ErrorCode::Conflict,
             AppError::Database(_) | AppError::Internal(_) => ErrorCode::Internal,
