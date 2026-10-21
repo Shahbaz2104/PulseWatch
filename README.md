@@ -47,6 +47,10 @@ The hosted demo runs `DEMO_MODE=true`: reads are public, every write returns `40
 |---|---|
 | ![Reports](docs/screenshots/reports.png) | ![Light](docs/screenshots/overview-light.png) |
 
+| Incidents | Settings |
+|---|---|
+| ![Incidents](docs/screenshots/incidents.png) | ![Settings](docs/screenshots/settings.png) |
+
 ---
 
 ## Features

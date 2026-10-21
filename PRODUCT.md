@@ -22,7 +22,7 @@ An uptime monitor you own end-to-end: honest metrics (0 checks → null, never a
 
 ## Operating Context
 
-- Run locally or self-hosted (`npm run dev`, Docker API, static frontend); single-node SQLite in WAL mode.
+- Run locally or self-hosted (`npm run dev`, full-stack Docker image that serves the built SPA from the API process, or any static host); single-node SQLite in WAL mode. A read-only public demo (`DEMO_MODE=true`) seeds itself with monitors, checks, incidents, and a paused monitor when empty.
 - Daily workflow: scan fleet status, drill into a monitor's check history, review reports across 24h/7d/30d windows, adjust check defaults; API consumers use Swagger UI at `/api/v1/docs`.
 - Evaluation happens through the GitHub README, a 52-second demo video, screenshots, and a CI gate on every push.
 
@@ -39,7 +39,7 @@ An uptime monitor you own end-to-end: honest metrics (0 checks → null, never a
 
 ## Evidence on Hand
 
-- Working app: backend 100 tests, frontend 77 tests, CI green; `README.md` with use cases; `docs/linkedin-demo.mp4` + `docs/linkedin-poster.png`; five screenshots in `docs/screenshots/`; `.env.example`; OpenAPI at `/api/v1/docs`.
+- Working app: backend 110 tests (52 unit + 58 integration), frontend 77 tests, CI green; `README.md` with use cases; `docs/linkedin-demo.mp4` + `docs/linkedin-poster.png`; seven screenshots in `docs/screenshots/`; `.env.example`; OpenAPI at `/api/v1/docs`.
 - Absent and never to be fabricated: customers, testimonials, benchmarks, pricing.
 
 ## Product Principles

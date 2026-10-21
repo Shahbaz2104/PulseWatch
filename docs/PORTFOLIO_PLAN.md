@@ -185,14 +185,15 @@ Retention:
   API docs, and write blocking.
 - Tests: static fallback, demo 403s, and seed idempotence.
 
-## Phase 6 — Presentation
+## Phase 6 — Presentation — IN PROGRESS
 
-- Regenerate screenshots from the live demo: Overview dark/light, Monitors, Monitor detail
-  with alerts, Incidents filter, Reports with paused time, and Settings.
-- Re-record the 45–60 second walkthrough.
-- README: live demo, alert payload example, SMTP/auth setup, demo mode, new schema,
-  updated test counts, and engineering highlights.
-- Update PLAN/PRODUCT, push, verify CI and the live deployment.
+- [x] Screenshots regenerated against the local full-stack demo (2026-10-21): Overview
+  dark/light, Monitors, Monitor detail with an open incident, Incidents filtered to Open,
+  Reports with paused time, and Settings.
+- [ ] Re-record the 45–60 second walkthrough.
+- [x] README/PRODUCT refresh: demo-mode and Docker sections, `STATIC_DIR`, new screenshots,
+  and updated test counts (187: backend 110 + frontend 77). Live demo link pending deploy.
+- [ ] Push, verify CI, deploy to Fly, and smoke-test the live demo (write blocking + seed).
 
 ## Verification gates
 
